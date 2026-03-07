@@ -1,0 +1,37 @@
+# Tailscale Service for OpenBrain
+# Exposes OpenBrain to your entire tailnet with MagicDNS
+#
+# The Tailscale K8s Operator creates a proxy pod that joins your tailnet
+# as "openbrain" and routes traffic to the openbrain-api ClusterIP service.
+#
+# Accessible from ANY device on your Tailscale network:
+#   REST API: http://openbrain.your-tailnet.ts.net:8000/health
+#   MCP SSE:  http://openbrain.your-tailnet.ts.net:8080/sse?key=<MCP_ACCESS_KEY>
+#
+# Traffic is encrypted by WireGuard (Tailscale tunnel) even though it's HTTP.
+# No need for TLS certs — the tunnel itself is end-to-end encrypted.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbrain-tailscale
+  namespace: openbrain
+  labels:
+    app: openbrain-api
+  annotations:
+    tailscale.com/hostname: "openbrain"
+    tailscale.com/tags: "tag:k8s"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  ports:
+  - name: api
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: mcp
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: openbrain-api

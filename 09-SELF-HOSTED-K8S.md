@@ -123,7 +123,16 @@ kubectl label namespace openbrain pod-security.kubernetes.io/enforce=privileged
 kubectl exec -n your-namespace deploy/ollama-gpu-bridge -- ollama pull nomic-embed-text
 ```
 
-### Step 3: Apply Manifests
+### Step 3: Copy ACR Pull Secret
+
+```bash
+# Copy the existing ACR pull secret from your-namespace to openbrain namespace
+kubectl get secret acr-pull-secret -n your-namespace -o yaml \
+  | sed 's/namespace: your-namespace/namespace: openbrain/' \
+  | kubectl apply -f -
+```
+
+### Step 4: Apply Manifests
 
 ```bash
 # From E:\GitHub\OpenBrain\k8s\ directory
@@ -132,53 +141,84 @@ kubectl apply -f k8s/openbrain-secrets-actual.yaml   # Your actual secrets (giti
 kubectl apply -f k8s/postgres-statefulset.yaml
 kubectl apply -f k8s/openbrain-api-deployment.yaml
 kubectl apply -f k8s/openbrain-api-service-metallb.yaml
+kubectl apply -f k8s/openbrain-tailscale-service.yaml  # Tailscale MagicDNS access
 ```
 
-### Step 4: Initialize Database
+### Step 5: Wait and Verify
 
 ```bash
-# Wait for postgres to be ready
+# Wait for postgres to be ready (init.sql runs automatically via ConfigMap)
 kubectl wait --for=condition=ready pod -l app=openbrain-postgres -n openbrain --timeout=120s
 
-# Run schema initialization
-kubectl exec -n openbrain openbrain-postgres-0 -- psql -U openbrain -d openbrain -f /docker-entrypoint-initdb.d/init.sql
-```
+# Wait for API pods
+kubectl wait --for=condition=ready pod -l app=openbrain-api -n openbrain --timeout=120s
 
-### Step 5: Verify
-
-```bash
 # Check all pods
 kubectl get pods -n openbrain
 
-# Test API health
-kubectl exec -n openbrain deploy/openbrain-api -- curl -s http://localhost:8000/health
-
-# Test MCP endpoint
-curl -H "x-brain-key: YOUR_KEY" http://192.168.x.x:8080/
+# Check services (MetalLB + Tailscale)
+kubectl get svc -n openbrain
 ```
 
-### Step 6: Configure AI Clients
+### Step 6: Test Endpoints
 
-See [04-MCP-SERVER.md](04-MCP-SERVER.md) for client configs, using your MetalLB IP or Cloudflare Tunnel domain.
+```bash
+# Via MetalLB (LAN)
+curl -s http://192.168.x.x:8000/health
+curl -s http://192.168.x.x:8080/health
+
+# Via Tailscale MagicDNS (anywhere on your tailnet)
+curl -s http://openbrain.your-tailnet.ts.net:8000/health
+curl -s http://openbrain.your-tailnet.ts.net:8080/health
+
+# Test MCP SSE auth
+curl -s "http://openbrain.your-tailnet.ts.net:8080/sse?key=YOUR_MCP_KEY" --max-time 2
+```
+
+### Step 7: Configure AI Clients
+
+See [04-MCP-SERVER.md](04-MCP-SERVER.md) for client configs. Use these URLs:
+
+| Client | URL |
+|---|---|
+| Claude Code / Cursor (Tailscale) | `http://openbrain.your-tailnet.ts.net:8080/sse?key=<KEY>` |
+| Claude Code / Cursor (LAN) | `http://192.168.x.x:8080/sse?key=<KEY>` |
+| Claude Desktop (Tailscale) | `http://openbrain.your-tailnet.ts.net:8080/sse?key=<KEY>` |
 
 ---
 
 ## Networking Options
 
-### Option A: Tailscale Only (Private)
+### Option A: Tailscale MagicDNS (Private, Anywhere) ✅ Active
 
-Access Open Brain only from your Tailscale network. Most secure.
+Access Open Brain from **any device on your Tailscale network**, anywhere in the world.
+Uses the Tailscale K8s Operator with a `loadBalancerClass: tailscale` service.
 
 ```
-Claude Code (your machine, on Tailscale)
-  → http://192.168.x.x:8080 (MetalLB IP, reachable via Tailscale)
+Any device on your tailnet (laptop, phone, tablet, other servers)
+  → http://openbrain.your-tailnet.ts.net:8000  (REST API)
+  → http://openbrain.your-tailnet.ts.net:8080  (MCP SSE)
 ```
 
-No Cloudflare tunnel needed. Works for Claude Code and Cursor (local tools).
+- **Tailscale IP**: `100.x.x.x`
+- **MagicDNS**: `openbrain.your-tailnet.ts.net`
+- **Encryption**: WireGuard tunnel (end-to-end encrypted, no TLS certs needed)
+- **Auth**: MCP access key still required for MCP endpoints
 
-### Option B: Cloudflare Tunnel (Public MCP)
+### Option B: MetalLB LAN (Local Network) ✅ Active
 
-Required for Claude Desktop, ChatGPT, Gemini (they need a public URL).
+Access from devices on your home network (192.168.x.x).
+
+```
+Devices on LAN
+  → http://192.168.x.x:8000  (REST API)
+  → http://192.168.x.x:8080  (MCP SSE)
+```
+
+### Option C: Cloudflare Tunnel (Public MCP, Optional)
+
+Only needed for cloud AI services that require a public URL (Claude Desktop remote, ChatGPT plugins).
+Since Claude Code and Cursor work locally with Tailscale, this is optional.
 
 ```
 Claude Desktop / ChatGPT
@@ -192,12 +232,6 @@ Create a Cloudflare Tunnel pointing to the ClusterIP service:
 - hostname: brain.yourdomain.com
   service: http://openbrain-api.openbrain.svc.cluster.local:8080
 ```
-
-### Option C: Both (Recommended)
-
-- Tailscale for Claude Code / Cursor (low latency, private)
-- Cloudflare Tunnel for Claude Desktop / ChatGPT / Gemini (public access)
-- MCP access key required regardless of path
 
 ---
 
