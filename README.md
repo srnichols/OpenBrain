@@ -489,6 +489,7 @@ openssl rand -hex 32
 
 ## Credits
 
+- **[Scott Nichols](https://github.com/srnichols)** — Self-hosted TypeScript implementation with Ollama embeddings, PostgreSQL + pgvector, Docker, and Kubernetes deployment
 - **[Nate B Jones](https://www.natebjones.com)** — Creator of the Open Brain concept and architecture
 - **[Jon Edwards](https://x.com/limitededition)** (Limited Edition Jonathan) — Collaborator
 - **[Open Brain Setup Guide](https://promptkit.natebjones.com/20260224_uq1_guide_main)** — Original guide
