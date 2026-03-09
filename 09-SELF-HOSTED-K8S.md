@@ -87,7 +87,7 @@
 
 ## Key Advantage: Ollama Is Already Running
 
-Your existing existing MCP server deployment already references Ollama:
+Your existing MCP server deployment already references Ollama:
 
 ```yaml
 # From your your-mcp-server-deployment.yaml

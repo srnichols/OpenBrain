@@ -55,7 +55,7 @@ spec:
               name: openbrain-secrets
               key: postgres-password
 
-        # Ollama (cross-namespace, using existing existing Ollama deployment)
+        # Ollama (cross-namespace, using existing Ollama deployment)
         - name: OLLAMA_ENDPOINT
           value: "http://ollama-gpu-bridge.your-namespace.svc.cluster.local:11434"
         - name: OLLAMA_EMBED_MODEL
