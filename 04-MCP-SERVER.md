@@ -243,74 +243,153 @@ PostgreSQL + pgvector
 
 ## Client Configuration
 
-### Claude Desktop / Claude Web
+### Self-Hosted (K8s + Tailscale)
+
+These configs connect to your self-hosted Open Brain running on your K8s cluster.
+
+### URL Reference
+
+| Network | Protocol | URL |
+|---|---|---|
+| On tailnet | HTTP | `http://openbrain.tailfb4202.ts.net:8080/sse?key=<KEY>` |
+| Off tailnet (Funnel) | HTTPS | `https://openbrain.tailfb4202.ts.net/sse?key=<KEY>` |
+| LAN only | HTTP | `http://192.168.68.120:8080/sse?key=<KEY>` |
+
+#### Claude Desktop (any network — via Tailscale Funnel)
+
+Claude Desktop does **not** support SSE transport directly. Use `mcp-remote` as a stdio-to-SSE bridge.
 
 Add to `claude_desktop_config.json`:
 
+**Off tailnet (Funnel — public HTTPS):**
 ```json
 {
     "mcpServers": {
-        "open-brain": {
-            "url": "https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex-key>",
+        "openbrain": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>"]
+        }
+    }
+}
+```
+
+**On tailnet (private):**
+```json
+{
+    "mcpServers": {
+        "openbrain": {
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "http://openbrain.tailfb4202.ts.net:8080/sse?key=<MCP_ACCESS_KEY>"]
+        }
+    }
+}
+```
+
+> **Requires**: Node.js installed. `mcp-remote` is fetched automatically by `npx`.
+
+#### Claude Code / VS Code Copilot
+
+Add to `~/.claude/settings.json`:
+
+**On tailnet:**
+```json
+{
+    "mcpServers": {
+        "openbrain": {
+            "type": "sse",
+            "url": "http://openbrain.tailfb4202.ts.net:8080/sse?key=<MCP_ACCESS_KEY>"
+        }
+    }
+}
+```
+
+**Off tailnet (Funnel):**
+```json
+{
+    "mcpServers": {
+        "openbrain": {
+            "type": "sse",
+            "url": "https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>"
+        }
+    }
+}
+```
+
+#### Cursor
+
+Add to `.cursor/mcp.json`:
+
+**On tailnet:**
+```json
+{
+    "mcpServers": {
+        "openbrain": {
+            "url": "http://openbrain.tailfb4202.ts.net:8080/sse?key=<MCP_ACCESS_KEY>",
             "transport": "sse"
         }
     }
 }
 ```
 
-**Note**: Claude Desktop cannot send custom headers, so the key must be in the URL parameter.
-
-### Claude Code
-
-Add to Claude Code MCP settings:
-
+**Off tailnet (Funnel):**
 ```json
 {
     "mcpServers": {
-        "open-brain": {
-            "url": "https://<your-ref>.supabase.co/functions/v1/open-brain-mcp",
-            "transport": "sse",
-            "headers": {
-                "x-brain-key": "<your-64-char-hex-key>"
-            }
+        "openbrain": {
+            "url": "https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>",
+            "transport": "sse"
         }
     }
 }
 ```
 
-### ChatGPT
+#### ChatGPT
 
 1. Enable **Developer Mode** in ChatGPT settings
-2. Add MCP connector with URL:
+2. Add MCP connector with URL (use Funnel URL — ChatGPT needs public access):
    ```
-   https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex-key>
+   https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>
    ```
 3. Set authentication to **"none"** (key is in URL)
 4. **Note**: ChatGPT disables its built-in memory when Developer Mode is active — Open Brain replaces this functionality
 
-### Cursor
+#### Gemini
 
-Add to Cursor MCP settings (`.cursor/mcp.json`):
+Use Funnel URL (Gemini needs public access):
+```
+https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>
+```
+
+---
+
+### Supabase Cloud (Original)
+
+If using the Supabase-hosted version instead of self-hosted K8s:
+
+#### Claude Desktop (Supabase)
 
 ```json
 {
     "mcpServers": {
         "open-brain": {
-            "url": "https://<your-ref>.supabase.co/functions/v1/open-brain-mcp",
-            "transport": "sse",
-            "headers": {
-                "x-brain-key": "<your-64-char-hex-key>"
-            }
+            "command": "npx",
+            "args": ["-y", "mcp-remote", "https://<your-ref>.supabase.co/functions/v1/open-brain-mcp/sse?key=<your-64-char-hex-key>"]
         }
     }
 }
 ```
 
-### Gemini
+#### Claude Code (Supabase)
 
-Use URL parameter method (same as Claude Desktop):
-```
-https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex-key>
+```json
+{
+    "mcpServers": {
+        "open-brain": {
+            "type": "sse",
+            "url": "https://<your-ref>.supabase.co/functions/v1/open-brain-mcp/sse?key=<your-64-char-hex-key>"
+        }
+    }
+}
 ```
 
 ---
@@ -327,17 +406,22 @@ https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex
 ### Auth Flow
 
 ```
-1. Client sends request with key (header or URL param)
-2. Edge Function extracts key from either source
-3. Compares against MCP_ACCESS_KEY environment variable
-4. 401 if invalid/missing
-5. Proceeds to tool dispatch if valid
+1. Client connects to /sse with key (x-brain-key header or ?key= URL param)
+2. Server validates key against MCP_ACCESS_KEY environment variable
+3. 401 if invalid/missing → connection rejected
+4. If valid → SSE session created, session ID issued
+5. Subsequent /messages POSTs authenticated implicitly via session ID
+   (no key required — having a valid sessionId proves prior authentication)
 ```
+
+> **Note**: The `/messages` endpoint does NOT require the API key. This is intentional —
+> `mcp-remote` and other SSE clients POST to `/messages?sessionId=xxx` without including
+> the key. Authentication is enforced at connection time on `/sse`.
 
 ### Security Considerations
 
 - URL parameter method exposes key in server logs and browser history — use header method when possible
-- Rotate key periodically by updating the Supabase secret and client configs
+- Rotate key periodically by updating the K8s secret and client configs
 - Never commit the key to source control
 - Each user/deployment should have a unique key
 
@@ -347,8 +431,26 @@ https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex
 
 ### "Tool not found" in AI client
 - Verify MCP server URL is correct
-- Check that edge function is deployed: `supabase functions list`
-- Test with `curl`: `curl -H "x-brain-key: <key>" https://<ref>.supabase.co/functions/v1/open-brain-mcp`
+- Check that the server is running: `kubectl get pods -n openbrain`
+- Test health: `curl https://openbrain.tailfb4202.ts.net/health`
+
+### "No active session. Connect to /sse first."
+- **Cause**: SSE connection and `/messages` POST are hitting different pods
+- **Fix**: Enable session affinity on the ClusterIP service:
+  ```bash
+  kubectl patch svc openbrain-api -n openbrain \
+    -p '{"spec":{"sessionAffinity":"ClientIP"}}'
+  ```
+
+### mcp-remote ServerError / OAuth errors
+- **Cause**: The `/messages` endpoint is returning 401, triggering mcp-remote's OAuth flow
+- **Fix**: Auth must only be enforced on `/sse`, not on `/messages`. The session ID on `/messages` already proves authentication. Check `src/index.ts`.
+
+### Claude Desktop doesn't show OpenBrain tools
+- Verify config file: `%APPDATA%\Claude\claude_desktop_config.json`
+- Must have `mcpServers.openbrain` entry — Claude Desktop may overwrite on launch
+- Fully quit (system tray → Quit) and relaunch after config changes
+- Check MCP logs: `%APPDATA%\Claude\logs\mcp-server-openbrain.log`
 
 ### ChatGPT doesn't auto-use Open Brain tools
 - ChatGPT is less intuitive than Claude at picking MCP tools automatically
@@ -362,6 +464,7 @@ https://<your-ref>.supabase.co/functions/v1/open-brain-mcp?key=<your-64-char-hex
 - Test with exact captured terminology
 
 ### Capture works but search fails
-- Verify `vector` extension is enabled in Supabase
+- Verify `vector` extension is enabled: `CREATE EXTENSION IF NOT EXISTS vector;`
 - Check that embeddings are being generated (look for null embedding column values)
 - Verify `match_thoughts()` function exists in database
+- Verify Ollama embedding model is pulled: `kubectl exec -n <ns> deploy/ollama-gpu-bridge -- ollama list`

@@ -1,0 +1,40 @@
+# Tailscale Funnel Service for OpenBrain
+# Exposes OpenBrain MCP server to the PUBLIC INTERNET via Tailscale Funnel.
+#
+# Unlike the regular Tailscale service, Funnel allows devices that are NOT
+# on your tailnet to connect over HTTPS.
+#
+# Public URL: https://openbrain.tailfb4202.ts.net
+#   MCP SSE:  https://openbrain.tailfb4202.ts.net/sse?key=<MCP_ACCESS_KEY>
+#   Health:   https://openbrain.tailfb4202.ts.net/health
+#
+# Funnel terminates TLS for you — the backend stays plain HTTP.
+# Only port 443 is exposed externally; traffic is forwarded to MCP port 8080.
+#
+# Prerequisites:
+#   1. Tailscale K8s Operator is installed
+#   2. Funnel is enabled in your tailnet ACL policy:
+#        "nodeAttrs": [{ "target": ["tag:k8s"], "attr": ["funnel"] }]
+#   3. HTTPS must be enabled in your tailnet (Admin Console → DNS → HTTPS Certificates)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbrain-funnel
+  namespace: openbrain
+  labels:
+    app: openbrain-api
+  annotations:
+    tailscale.com/hostname: "openbrain"
+    tailscale.com/tags: "tag:k8s"
+    tailscale.com/funnel: "true"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  ports:
+    - name: mcp
+      port: 443
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: openbrain-api

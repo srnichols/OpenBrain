@@ -45,6 +45,7 @@
 │  │  │  PVC: 10Gi       │  │  - Capture + Search + Stats     │  │   │
 │  │  │  local-path      │  │                                   │  │   │
 │  │  └────────┬─────────┘  │  Deployment, 2 replicas          │  │   │
+│  │           │             │  (SessionAffinity: ClientIP)     │  │   │
 │  │           │             └──────────┬───────────────────────┘  │   │
 │  │           │                        │                          │   │
 │  │           └────────────────────────┘                          │   │
@@ -141,7 +142,12 @@ kubectl apply -f k8s/openbrain-secrets-actual.yaml   # Your actual secrets (giti
 kubectl apply -f k8s/postgres-statefulset.yaml
 kubectl apply -f k8s/openbrain-api-deployment.yaml
 kubectl apply -f k8s/openbrain-api-service-metallb.yaml
-kubectl apply -f k8s/openbrain-tailscale-service.yaml  # Tailscale MagicDNS access
+kubectl apply -f k8s/openbrain-tailscale-service.yaml    # Tailscale MagicDNS (tailnet only)
+kubectl apply -f k8s/openbrain-tailscale-funnel.yaml     # Tailscale Funnel (public HTTPS)
+
+# Enable session affinity on the ClusterIP service (required for multi-replica SSE)
+kubectl patch svc openbrain-api -n openbrain \
+  -p '{"spec":{"sessionAffinity":"ClientIP","sessionAffinityConfig":{"clientIP":{"timeoutSeconds":3600}}}}'
 ```
 
 ### Step 5: Wait and Verify
@@ -168,22 +174,26 @@ curl -s http://192.168.x.x:8000/health
 curl -s http://192.168.x.x:8080/health
 
 # Via Tailscale MagicDNS (anywhere on your tailnet)
-curl -s http://openbrain.your-tailnet.ts.net:8000/health
-curl -s http://openbrain.your-tailnet.ts.net:8080/health
+curl -s http://openbrain.tailfb4202.ts.net:8000/health
+curl -s http://openbrain.tailfb4202.ts.net:8080/health
+
+# Via Tailscale Funnel (public HTTPS, from any network)
+curl -s https://openbrain.tailfb4202.ts.net/health
 
 # Test MCP SSE auth
-curl -s "http://openbrain.your-tailnet.ts.net:8080/sse?key=YOUR_MCP_KEY" --max-time 2
+curl -s "https://openbrain.tailfb4202.ts.net/sse?key=YOUR_MCP_KEY" --max-time 2
 ```
 
 ### Step 7: Configure AI Clients
 
 See [04-MCP-SERVER.md](04-MCP-SERVER.md) for client configs. Use these URLs:
 
-| Client | URL |
-|---|---|
-| Claude Code / Cursor (Tailscale) | `http://openbrain.your-tailnet.ts.net:8080/sse?key=<KEY>` |
-| Claude Code / Cursor (LAN) | `http://192.168.x.x:8080/sse?key=<KEY>` |
-| Claude Desktop (Tailscale) | `http://openbrain.your-tailnet.ts.net:8080/sse?key=<KEY>` |
+| Client | Network | URL |
+|---|---|---|
+| Claude Code / Cursor (SSE) | Tailscale | `http://openbrain.tailfb4202.ts.net:8080/sse?key=<KEY>` |
+| Claude Code / Cursor (SSE) | LAN | `http://192.168.x.x:8080/sse?key=<KEY>` |
+| Claude Code / Cursor (SSE) | Public (Funnel) | `https://openbrain.tailfb4202.ts.net/sse?key=<KEY>` |
+| Claude Desktop (mcp-remote) | Any network | `npx -y mcp-remote https://openbrain.tailfb4202.ts.net/sse?key=<KEY>` |
 
 ---
 
@@ -196,29 +206,74 @@ Uses the Tailscale K8s Operator with a `loadBalancerClass: tailscale` service.
 
 ```
 Any device on your tailnet (laptop, phone, tablet, other servers)
-  → http://openbrain.your-tailnet.ts.net:8000  (REST API)
-  → http://openbrain.your-tailnet.ts.net:8080  (MCP SSE)
+  → http://openbrain.tailfb4202.ts.net:8000  (REST API)
+  → http://openbrain.tailfb4202.ts.net:8080  (MCP SSE)
 ```
 
-- **Tailscale IP**: `100.x.x.x`
-- **MagicDNS**: `openbrain.your-tailnet.ts.net`
+- **Tailscale IP**: `100.118.118.101`
+- **MagicDNS**: `openbrain.tailfb4202.ts.net`
 - **Encryption**: WireGuard tunnel (end-to-end encrypted, no TLS certs needed)
 - **Auth**: MCP access key still required for MCP endpoints
 
 ### Option B: MetalLB LAN (Local Network) ✅ Active
 
-Access from devices on your home network (192.168.x.x).
+Access from devices on your home network.
 
 ```
 Devices on LAN
-  → http://192.168.x.x:8000  (REST API)
-  → http://192.168.x.x:8080  (MCP SSE)
+  → http://192.168.68.120:8000  (REST API)
+  → http://192.168.68.120:8080  (MCP SSE)
 ```
 
-### Option C: Cloudflare Tunnel (Public MCP, Optional)
+### Option C: Tailscale Funnel (Public HTTPS) ✅ Active
 
-Only needed for cloud AI services that require a public URL (Claude Desktop remote, ChatGPT plugins).
-Since Claude Code and Cursor work locally with Tailscale, this is optional.
+Exposes OpenBrain MCP to the **public internet** over HTTPS via Tailscale Funnel.
+Required for devices **not** on your tailnet (e.g. a work PC without Tailscale installed).
+
+```
+Any device on the internet
+  → https://openbrain.tailfb4202.ts.net  (MCP SSE, port 443)
+```
+
+- **TLS**: Automatically provisioned by Tailscale
+- **Port**: 443 only (Funnel limitation)
+- **Auth**: MCP access key still required
+- **K8s manifest**: `k8s/openbrain-tailscale-funnel.yaml`
+
+**Prerequisites:**
+1. Tailscale K8s Operator installed
+2. HTTPS certificates enabled in Tailscale Admin Console (DNS → HTTPS Certificates)
+3. Funnel enabled in tailnet ACL policy:
+   ```jsonc
+   "nodeAttrs": [{ "target": ["tag:k8s"], "attr": ["funnel"] }]
+   ```
+
+**Important:** The Tailscale K8s Operator (v1.92.4) creates the proxy pod but does **not** auto-configure Funnel serve. After applying the manifest, you must manually enable it:
+```bash
+# Find the Funnel proxy pod
+kubectl get pods -n tailscale | grep openbrain-funnel
+
+# Enable Funnel serve (replace pod name with actual)
+kubectl exec -n tailscale ts-openbrain-funnel-<ID>-0 -c tailscale -- \
+  tailscale funnel --bg --https=443 http://openbrain-api.openbrain.svc.cluster.local:8080
+```
+If the Funnel proxy pod restarts, you'll need to re-run this command.
+
+**Note:** Claude Desktop does not support SSE transport directly. Use `mcp-remote` as a stdio-to-SSE bridge:
+```json
+{
+  "mcpServers": {
+    "openbrain": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://openbrain.tailfb4202.ts.net/sse?key=<KEY>"]
+    }
+  }
+}
+```
+
+### Option D: Cloudflare Tunnel (Public MCP, Optional)
+
+Alternative to Funnel if you want a custom domain. Generally not needed now that Funnel is active.
 
 ```
 Claude Desktop / ChatGPT

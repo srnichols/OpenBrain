@@ -73,18 +73,19 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Auth check for all other endpoints
-    const key =
-      (req.headers["x-brain-key"] as string | undefined) ??
-      url.searchParams.get("key");
-    if (mcpAccessKey && key !== mcpAccessKey) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      return;
-    }
-
     // SSE endpoint — AI clients connect here
+    // Auth is checked here; /messages skips the key check because
+    // having a valid sessionId proves the client already authenticated.
     if (url.pathname === "/sse" && req.method === "GET") {
+      const key =
+        (req.headers["x-brain-key"] as string | undefined) ??
+        url.searchParams.get("key");
+      if (mcpAccessKey && key !== mcpAccessKey) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
       const transport = new SSEServerTransport("/messages", res);
       const sessionId = transport.sessionId;
       transports.set(sessionId, transport);
