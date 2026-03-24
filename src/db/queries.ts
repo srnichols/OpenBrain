@@ -241,3 +241,97 @@ export async function getThoughtStats(
     },
   };
 }
+
+// ─── Update ──────────────────────────────────────────────────────────
+
+export async function updateThought(
+  pool: pg.Pool,
+  id: string,
+  content: string,
+  embedding: number[],
+  metadata: ThoughtMetadata
+): Promise<ThoughtRow> {
+  const embeddingStr = `[${embedding.join(",")}]`;
+
+  const { rows, rowCount } = await pool.query<ThoughtRow>(
+    `UPDATE thoughts
+     SET content = $2, embedding = $3::vector, metadata = $4::jsonb
+     WHERE id = $1
+     RETURNING id, content, metadata, project, archived, supersedes, created_at`,
+    [id, content, embeddingStr, JSON.stringify(metadata)]
+  );
+
+  if (!rowCount || rowCount === 0) {
+    throw new Error(`Thought not found: ${id}`);
+  }
+
+  return rows[0]!;
+}
+
+// ─── Delete ──────────────────────────────────────────────────────────
+
+export async function deleteThought(
+  pool: pg.Pool,
+  id: string
+): Promise<{ deleted: boolean; id: string }> {
+  // Clear supersedes references pointing to this thought first
+  await pool.query(
+    `UPDATE thoughts SET supersedes = NULL WHERE supersedes = $1`,
+    [id]
+  );
+
+  const { rowCount } = await pool.query(
+    `DELETE FROM thoughts WHERE id = $1`,
+    [id]
+  );
+
+  return { deleted: (rowCount ?? 0) > 0, id };
+}
+
+// ─── Batch Insert ────────────────────────────────────────────────────
+
+export interface BatchThoughtInput {
+  content: string;
+  embedding: number[];
+  metadata: ThoughtMetadata;
+  project?: string;
+}
+
+export async function batchInsertThoughts(
+  pool: pg.Pool,
+  thoughts: BatchThoughtInput[]
+): Promise<ThoughtRow[]> {
+  const client = await pool.connect();
+  const results: ThoughtRow[] = [];
+
+  try {
+    await client.query("BEGIN");
+
+    for (const thought of thoughts) {
+      const embeddingStr = `[${thought.embedding.join(",")}]`;
+
+      const { rows } = await client.query<ThoughtRow>(
+        `INSERT INTO thoughts (content, embedding, metadata, project)
+         VALUES ($1, $2::vector, $3::jsonb, $4)
+         RETURNING id, content, metadata, project, archived, supersedes, created_at`,
+        [
+          thought.content,
+          embeddingStr,
+          JSON.stringify(thought.metadata),
+          thought.project ?? null,
+        ]
+      );
+
+      results.push(rows[0]!);
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return results;
+}
