@@ -479,11 +479,81 @@ Copilot calls `search_thoughts` with `project: "my-api"` and `type: "architectur
 
 ### ChatGPT
 
-1. Enable **Developer Mode** in ChatGPT settings
-2. Add MCP connector with URL: `http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>`
-3. Set authentication to **"none"** (key is in URL)
+ChatGPT supports MCP via **Connectors** in Developer Mode.
 
-> **Note**: ChatGPT disables its built-in memory when Developer Mode is active. Open Brain replaces that functionality.
+1. Go to **Settings → Developer → MCP Connectors**
+2. Click **Add Connector**
+3. Set the URL: `http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>`
+4. Transport: **SSE**
+5. Authentication: **None** (key is embedded in URL)
+6. Save and start a new conversation
+
+> **Note**: ChatGPT disables its built-in memory when Developer Mode is active. Open Brain replaces that functionality with project-scoped, searchable, persistent memory.
+
+**Usage:**
+```
+Search my brain for architecture decisions in the "my-api" project
+```
+```
+Capture this decision for "my-api": We chose PostgreSQL over MongoDB for relational integrity.
+```
+
+### Microsoft Copilot
+
+Microsoft Copilot (copilot.microsoft.com / the Copilot app) does not yet support MCP natively. You can still use Open Brain via the **REST API**:
+
+**PowerShell:**
+```powershell
+# Capture a thought
+Invoke-RestMethod -Uri "http://<host>:8000/memories" -Method Post `
+  -ContentType "application/json" `
+  -Body '{"content": "Decision: Using Azure Service Bus over RabbitMQ for cloud-native messaging.", "project": "my-api"}'
+
+# Search
+Invoke-RestMethod -Uri "http://<host>:8000/memories/search" -Method Post `
+  -ContentType "application/json" `
+  -Body '{"query": "messaging queue decision", "project": "my-api"}'
+```
+
+**Custom GPT / Copilot Studio:** You can import the REST API as a custom action/connector using the endpoint reference in the [REST API](#rest-api) section above.
+
+> **When MCP lands**: Microsoft has announced MCP support for Copilot. When available, the config will work similarly to the VS Code setup.
+
+### Grok
+
+Grok does not yet support MCP natively. Use the **REST API** directly:
+
+```bash
+# Capture
+curl -X POST http://<host>:8000/memories \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Pattern: Always validate UUIDs at API boundaries before hitting the database.", "project": "my-api", "source": "grok-session"}'
+
+# Search
+curl -X POST http://<host>:8000/memories/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "input validation patterns", "project": "my-api"}'
+```
+
+> **When MCP lands**: xAI has announced MCP support for Grok. When available, configure it the same way as ChatGPT using the SSE URL.
+
+### Any Other MCP Client
+
+Open Brain works with any client that supports the MCP SSE transport:
+
+| Setting | Value |
+|---------|-------|
+| **URL** | `http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>` |
+| **Transport** | SSE |
+| **Auth** | Key in URL (no separate auth header needed) |
+
+For clients that only support **stdio** transport, use `mcp-remote` as a bridge:
+
+```bash
+npx mcp-remote http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>
+```
+
+For clients with **no MCP support**, use the REST API on port 8000 — every MCP tool has a REST equivalent.
 
 ---
 
