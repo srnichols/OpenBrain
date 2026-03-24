@@ -20,6 +20,9 @@ export interface ThoughtRow {
   id: string;
   content: string;
   metadata: ThoughtMetadata;
+  project?: string | null;
+  archived?: boolean;
+  supersedes?: string | null;
   created_at: Date;
 }
 
@@ -40,6 +43,8 @@ export interface ListFilters {
   topic?: string;
   person?: string;
   days?: number;
+  project?: string;
+  include_archived?: boolean;
 }
 
 // ─── Insert ──────────────────────────────────────────────────────────
@@ -48,15 +53,17 @@ export async function insertThought(
   pool: pg.Pool,
   content: string,
   embedding: number[],
-  metadata: ThoughtMetadata
+  metadata: ThoughtMetadata,
+  project?: string,
+  supersedes?: string
 ): Promise<ThoughtRow> {
   const embeddingStr = `[${embedding.join(",")}]`;
 
   const { rows } = await pool.query<ThoughtRow>(
-    `INSERT INTO thoughts (content, embedding, metadata)
-     VALUES ($1, $2::vector, $3::jsonb)
-     RETURNING id, content, metadata, created_at`,
-    [content, embeddingStr, JSON.stringify(metadata)]
+    `INSERT INTO thoughts (content, embedding, metadata, project, supersedes)
+     VALUES ($1, $2::vector, $3::jsonb, $4, $5)
+     RETURNING id, content, metadata, project, archived, supersedes, created_at`,
+    [content, embeddingStr, JSON.stringify(metadata), project ?? null, supersedes ?? null]
   );
 
   return rows[0]!;
@@ -69,14 +76,23 @@ export async function searchThoughts(
   queryEmbedding: number[],
   limit: number = 10,
   threshold: number = 0.5,
-  filter: Record<string, unknown> = {}
+  filter: Record<string, unknown> = {},
+  project?: string,
+  include_archived?: boolean
 ): Promise<SearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(",")}]`;
 
   const { rows } = await pool.query<SearchResult>(
     `SELECT id, content, metadata, similarity, created_at
-     FROM match_thoughts($1::vector, $2, $3, $4::jsonb)`,
-    [embeddingStr, threshold, limit, JSON.stringify(filter)]
+     FROM match_thoughts($1::vector, $2, $3, $4::jsonb, $5, $6)`,
+    [
+      embeddingStr,
+      threshold,
+      limit,
+      JSON.stringify(filter),
+      project ?? null,
+      include_archived ?? false,
+    ]
   );
 
   return rows;
@@ -119,6 +135,16 @@ export async function listThoughts(
     params.push(since.toISOString());
   }
 
+  if (filters.project) {
+    idx++;
+    conditions.push(`project = $${idx}`);
+    params.push(filters.project);
+  }
+
+  if (!filters.include_archived) {
+    conditions.push(`(archived = false OR archived IS NULL)`);
+  }
+
   idx++;
   params.push(limit);
 
@@ -138,19 +164,29 @@ export async function listThoughts(
 
 // ─── Statistics ──────────────────────────────────────────────────────
 
-export async function getThoughtStats(pool: pg.Pool): Promise<ThoughtStats> {
+export async function getThoughtStats(
+  pool: pg.Pool,
+  project?: string
+): Promise<ThoughtStats> {
+  const projectCondition = project ? "WHERE project = $1" : "";
+  const projectJoinCondition = project ? "AND t.project = $1" : "";
+  const projectParams = project ? [project] : [];
+
   // Total count
   const countResult = await pool.query<{ count: string }>(
-    "SELECT COUNT(*) AS count FROM thoughts"
+    `SELECT COUNT(*) AS count FROM thoughts ${projectCondition}`,
+    projectParams
   );
   const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
 
   // Type distribution
   const typeResult = await pool.query<{ thought_type: string; count: string }>(
     `SELECT metadata->>'type' AS thought_type, COUNT(*)::text AS count
-     FROM thoughts
+     FROM thoughts t
+     WHERE TRUE ${projectJoinCondition}
      GROUP BY metadata->>'type'
-     ORDER BY COUNT(*) DESC`
+     ORDER BY COUNT(*) DESC`,
+    projectParams
   );
   const types: Record<string, number> = {};
   for (const row of typeResult.rows) {
@@ -160,10 +196,12 @@ export async function getThoughtStats(pool: pg.Pool): Promise<ThoughtStats> {
   // Top topics
   const topicResult = await pool.query<{ topic: string; count: string }>(
     `SELECT topic, COUNT(*)::text AS count
-     FROM thoughts, jsonb_array_elements_text(metadata->'topics') AS topic
+     FROM thoughts t, jsonb_array_elements_text(t.metadata->'topics') AS topic
+     WHERE TRUE ${projectJoinCondition}
      GROUP BY topic
      ORDER BY COUNT(*) DESC
-     LIMIT 10`
+     LIMIT 10`,
+    projectParams
   );
   const topTopics: [string, number][] = topicResult.rows.map((r) => [
     r.topic,
@@ -173,10 +211,12 @@ export async function getThoughtStats(pool: pg.Pool): Promise<ThoughtStats> {
   // Top people
   const peopleResult = await pool.query<{ person: string; count: string }>(
     `SELECT person, COUNT(*)::text AS count
-     FROM thoughts, jsonb_array_elements_text(metadata->'people') AS person
+     FROM thoughts t, jsonb_array_elements_text(t.metadata->'people') AS person
+     WHERE TRUE ${projectJoinCondition}
      GROUP BY person
      ORDER BY COUNT(*) DESC
-     LIMIT 10`
+     LIMIT 10`,
+    projectParams
   );
   const topPeople: [string, number][] = peopleResult.rows.map((r) => [
     r.person,
@@ -185,7 +225,8 @@ export async function getThoughtStats(pool: pg.Pool): Promise<ThoughtStats> {
 
   // Date range
   const rangeResult = await pool.query<{ earliest: Date | null; latest: Date | null }>(
-    "SELECT MIN(created_at) AS earliest, MAX(created_at) AS latest FROM thoughts"
+    `SELECT MIN(created_at) AS earliest, MAX(created_at) AS latest FROM thoughts ${projectCondition}`,
+    projectParams
   );
   const range = rangeResult.rows[0];
 
