@@ -1,5 +1,11 @@
 # Open Brain
 
+[![CI](https://github.com/srnichols/OpenBrain/actions/workflows/ci.yml/badge.svg)](https://github.com/srnichols/OpenBrain/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-7_tools-8A2BE2)](https://modelcontextprotocol.io/)
+
 **Personal semantic memory system that gives every AI tool persistent, searchable memory.**
 
 Open Brain solves the fundamental problem that every AI conversation starts from zero. Your context, decisions, preferences, and knowledge are locked inside individual chat sessions and platforms. Open Brain is a unified backend that any MCP-compatible AI client can read from and write to.

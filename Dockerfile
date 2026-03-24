@@ -25,6 +25,10 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY config/ ./config/
 
+# Run as non-root for security
+RUN addgroup -S openbrain && adduser -S openbrain -G openbrain
+USER openbrain
+
 # Expose ports: API (8000) and MCP (8080)
 EXPOSE 8000 8080
 
