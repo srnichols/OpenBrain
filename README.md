@@ -415,6 +415,68 @@ Add to `.cursor/mcp.json` in your project:
 }
 ```
 
+### VS Code + GitHub Copilot
+
+VS Code supports MCP servers natively in GitHub Copilot Chat (agent mode). You can configure Open Brain at the **workspace level** (per project) or **user level** (global).
+
+#### Option A: Workspace config (recommended — per project)
+
+Create `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "servers": {
+    "openbrain": {
+      "type": "sse",
+      "url": "http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>"
+    }
+  }
+}
+```
+
+This file can be committed to your repo so the entire team shares the same memory server.
+
+#### Option B: User-level config (global — all workspaces)
+
+Open VS Code Settings (`Ctrl+,`), search for `mcp`, and edit `settings.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "openbrain": {
+        "type": "sse",
+        "url": "http://<host>:8080/sse?key=<YOUR_MCP_ACCESS_KEY>"
+      }
+    }
+  }
+}
+```
+
+#### Verify it works
+
+1. Open **Copilot Chat** (`Ctrl+Shift+I`)
+2. Switch to **Agent mode** (click the mode dropdown)
+3. Click the **tools icon** (🔧) — you should see 7 Open Brain tools listed
+4. Ask: *"Search my brain for recent architecture decisions"*
+
+#### Example: Project-scoped memory in Copilot
+
+With workspace-level config, you can tell Copilot to scope all memories to the current project:
+
+```
+@copilot Capture this decision for the "my-api" project:
+We're using row-level security in PostgreSQL instead of application-level tenant filtering.
+```
+
+Copilot will call `capture_thought` with `project: "my-api"` and the content. Later:
+
+```
+@copilot Search my brain for security decisions in the "my-api" project
+```
+
+Copilot calls `search_thoughts` with `project: "my-api"` and `type: "architecture"` — returning only relevant results without cross-project noise.
+
 ### ChatGPT
 
 1. Enable **Developer Mode** in ChatGPT settings
