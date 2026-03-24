@@ -28,8 +28,11 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE thoughts (
     id         UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
     content    TEXT        NOT NULL,
-    embedding  VECTOR(1536),
+    embedding  VECTOR(768),
     metadata   JSONB       DEFAULT '{}'::jsonb,
+    project    TEXT,
+    archived   BOOLEAN     DEFAULT false,
+    supersedes UUID        REFERENCES thoughts(id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -55,8 +58,11 @@ CREATE TRIGGER set_updated_at
 |---|---|---|
 | `id` | UUID | Primary key, auto-generated |
 | `content` | TEXT | Raw thought text (the actual note/idea/decision) |
-| `embedding` | VECTOR(1536) | 1536-dimensional vector from text-embedding-3-small |
+| `embedding` | VECTOR(768) | 768-dimensional vector from nomic-embed-text (Ollama) |
 | `metadata` | JSONB | Structured tags: type, topics, people, action_items, dates, source |
+| `project` | TEXT | Optional project scope (NULL = unscoped) |
+| `archived` | BOOLEAN | Soft-archive flag (default: false) |
+| `supersedes` | UUID | FK to a prior thought this one replaces |
 | `created_at` | TIMESTAMPTZ | When the thought was captured |
 | `updated_at` | TIMESTAMPTZ | Auto-updated on modifications |
 
@@ -65,7 +71,7 @@ CREATE TRIGGER set_updated_at
 ```jsonc
 {
     // Thought classification
-    "type": "observation" | "task" | "idea" | "reference" | "person_note" | "decision" | "meeting",
+    "type": "observation" | "task" | "idea" | "reference" | "person_note" | "decision" | "meeting" | "architecture" | "pattern" | "postmortem" | "requirement" | "bug" | "convention",
 
     // 1-3 topic tags extracted from content
     "topics": ["api-design", "architecture", "performance"],

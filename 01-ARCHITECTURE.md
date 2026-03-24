@@ -112,14 +112,17 @@ The MCP server is the central gateway. It's a Supabase Edge Function built with 
 - Generate embeddings for search queries
 - Return structured results to AI clients
 
-**Four MCP Tools Exposed:**
+**Seven MCP Tools Exposed:**
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `search_thoughts` | Semantic vector search | `query`, `limit` (default 10), `threshold` (default 0.5) |
-| `list_thoughts` | Filtered listing | `type`, `topic`, `person`, `days` |
-| `capture_thought` | Store new thought | `content` (raw text) |
-| `thought_stats` | Aggregate statistics | (none) |
+| `search_thoughts` | Semantic vector search | `query`, `limit`, `threshold`, `project`, `type`, `topic`, `include_archived` |
+| `list_thoughts` | Filtered listing | `type`, `topic`, `person`, `days`, `project`, `include_archived` |
+| `capture_thought` | Store new thought | `content`, `project`, `source`, `supersedes` |
+| `thought_stats` | Aggregate statistics | `project` |
+| `update_thought` | Update existing thought | `id`, `content` |
+| `delete_thought` | Delete thought by ID | `id` |
+| `capture_thoughts` | Batch capture | `thoughts[]`, `project`, `source` |
 
 ### 3. Capture Pipeline (Edge Function: `ingest-thought`)
 

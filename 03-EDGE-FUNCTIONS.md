@@ -60,7 +60,7 @@ async function extractMetadata(content: string): Promise<object> {
                 {
                     role: "system",
                     content: `Extract metadata from the following thought. Return JSON with:
-                        - type: one of "observation", "task", "idea", "reference", "person_note", "decision", "meeting"
+                        - type: one of "observation", "task", "idea", "reference", "person_note", "decision", "meeting", "architecture", "pattern", "postmortem", "requirement", "bug", "convention"
                         - topics: array of 1-3 topic tags (lowercase, hyphenated)
                         - people: array of people mentioned (proper names)
                         - action_items: array of implied action items

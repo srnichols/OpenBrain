@@ -438,7 +438,7 @@ OpenBrain/
 │   ├── api/
 │   │   └── routes.ts         # Hono REST API routes
 │   ├── mcp/
-│   │   └── server.ts         # MCP server with 4 tools
+│   │   └── server.ts         # MCP server with 7 tools
 │   ├── db/
 │   │   ├── connection.ts     # PostgreSQL connection pool
 │   │   └── queries.ts        # Dapper-style SQL queries
