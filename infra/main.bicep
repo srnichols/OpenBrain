@@ -33,6 +33,10 @@ param postgresStorageGb int = 32
 @description('Embedding vector dimensions (1536 for Azure OpenAI text-embedding-3-small)')
 param embeddingDimensions int = 1536
 
+@description('GitHub Container Registry password/token (PAT with read:packages scope). Leave empty for public images.')
+@secure()
+param ghcrPassword string = ''
+
 // ── Variables ───────────────────────────────────────────────────────────────
 
 var baseName = 'openbrain'
@@ -216,10 +220,18 @@ resource caApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'http'
         allowInsecure: false
       }
+      registries: empty(ghcrPassword) ? [] : [
+        {
+          server: 'ghcr.io'
+          username: 'srnichols'
+          passwordSecretRef: 'ghcr-password'
+        }
+      ]
       secrets: [
         { name: 'db-password', value: dbPassword }
         { name: 'mcp-access-key', value: mcpAccessKey }
         { name: 'azure-openai-key', value: openai.listKeys().key1 }
+        { name: 'ghcr-password', value: empty(ghcrPassword) ? 'placeholder' : ghcrPassword }
       ]
     }
     template: {
