@@ -1,5 +1,6 @@
 # Secrets (NEVER commit actual secrets)
 k8s/openbrain-secrets-actual.yaml
+deploy/on-prem/k8s/openbrain-secrets-actual.yaml
 .env
 .mcp-key.txt
 

@@ -1,0 +1,45 @@
+# Open Brain - Docker Compose for Local Development
+# Usage: docker compose up -d
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: openbrain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openbrain
+      POSTGRES_USER: openbrain
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../../db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "openbrain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: openbrain-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "${API_PORT:-8000}:${API_PORT:-8000}"   # REST API
+      - "${MCP_PORT:-8080}:${MCP_PORT:-8080}"   # MCP Server
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:

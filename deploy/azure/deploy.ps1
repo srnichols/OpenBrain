@@ -124,7 +124,7 @@ Write-Host "  Key Vault:      $kvName" -ForegroundColor Cyan
 Write-Host "`nInitializing database schema..." -ForegroundColor Yellow
 
 # Read init.sql and replace 768 with the correct dimension for Azure
-$initSql = Get-Content (Join-Path $PSScriptRoot ".." "db" "init.sql") -Raw
+$initSql = Get-Content (Join-Path $PSScriptRoot ".." ".." "db" "init.sql") -Raw
 $initSql = $initSql -replace 'VECTOR\(768\)', 'VECTOR(1536)'
 
 # Write temp file

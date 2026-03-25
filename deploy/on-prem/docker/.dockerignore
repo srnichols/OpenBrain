@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.env
+*.md
+k8s/openbrain-secrets-actual.yaml
+.vscode
+.idea
