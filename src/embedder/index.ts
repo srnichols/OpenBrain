@@ -5,6 +5,7 @@
 import type { Embedder } from "./types.js";
 import { OllamaEmbedder } from "./ollama.js";
 import { OpenRouterEmbedder } from "./openrouter.js";
+import { AzureOpenAIEmbedder } from "./azure-openai.js";
 
 export type { Embedder, ThoughtMetadataExtracted } from "./types.js";
 
@@ -21,9 +22,12 @@ export function getEmbedder(): Embedder {
       case "openrouter":
         _embedder = new OpenRouterEmbedder();
         break;
+      case "azure-openai":
+        _embedder = new AzureOpenAIEmbedder();
+        break;
       default:
         throw new Error(
-          `Unknown embedder provider: "${provider}". Use "ollama" or "openrouter".`
+          `Unknown embedder provider: "${provider}". Use "ollama", "openrouter", or "azure-openai".`
         );
     }
   }

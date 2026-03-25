@@ -11,12 +11,15 @@ let pool: pg.Pool | null = null;
 
 export function getPool(): pg.Pool {
   if (!pool) {
+    const useSSL = (process.env.DB_SSL ?? "false").toLowerCase() === "true";
+
     pool = new Pool({
       host: process.env.DB_HOST ?? "openbrain-postgres",
       port: parseInt(process.env.DB_PORT ?? "5432", 10),
       database: process.env.DB_NAME ?? "openbrain",
       user: process.env.DB_USER ?? "openbrain",
       password: process.env.DB_PASSWORD ?? "changeme",
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
       min: 2,
       max: 10,
       idleTimeoutMillis: 30_000,
