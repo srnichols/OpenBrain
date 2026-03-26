@@ -204,6 +204,7 @@ Replace Supabase with self-hosted stack (already done in this project):
 | Embeddings (OpenRouter) | Ollama GPU Bridge (local, free) |
 
 See [09-SELF-HOSTED-K8S.md](09-SELF-HOSTED-K8S.md) for the full K8s deployment guide.
+See [10-AZURE-DEPLOYMENT.md](10-AZURE-DEPLOYMENT.md) for the Azure cloud deployment (Container Apps + Azure OpenAI).
 See [benclawbot/open-brain](https://github.com/benclawbot/open-brain) for an alternative Python/Docker implementation.
 
 ---

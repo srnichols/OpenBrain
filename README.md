@@ -46,13 +46,14 @@ You capture a thought from **any AI client**. Open Brain generates a vector embe
 
 ## Choose Your Deployment Path
 
-Open Brain supports three deployment options. Pick the one that matches your setup:
+Open Brain supports four deployment options. Pick the one that matches your setup:
 
 | Path | Best For | Embeddings | Vector Dimensions | Guide |
 |------|----------|------------|-------------------|-------|
 | **Docker Compose** | Local dev, quickest start | Ollama (local, free) | 768 | [Quick Start](#quick-start-docker-compose) below |
-| **Supabase Cloud** | Zero-infra, hosted | OpenRouter (cloud) | 1536 | [07-DEPLOYMENT.md](07-DEPLOYMENT.md) |
+| **Azure** | Teams, production cloud, fully managed | Azure OpenAI | 1536 | [10-AZURE-DEPLOYMENT.md](10-AZURE-DEPLOYMENT.md) |
 | **Kubernetes** | Homelab, production self-hosted | Ollama (local, free) | 768 | [09-SELF-HOSTED-K8S.md](09-SELF-HOSTED-K8S.md) |
+| **Supabase Cloud** | Zero-infra, hosted | OpenRouter (cloud) | 1536 | [07-DEPLOYMENT.md](07-DEPLOYMENT.md) |
 
 > **Note on docs 02-08:** The numbered documentation (02-DATABASE-SCHEMA through 08-IMPLEMENTATION-ROADMAP) was originally written for the Supabase/OpenRouter path with 1536-dim vectors. The actual codebase and Docker/K8s deployment use 768-dim Ollama vectors. Both paths are fully functional — just match your `EMBEDDING_DIMENSIONS` env var to your embedder.
 
@@ -954,7 +955,7 @@ This implementation started from [Nate B Jones'](https://www.natebjones.com) Ope
 
 | Area | Nate's Original | This Fork |
 |------|----------------|-----------|
-| **Hosting** | Supabase (cloud) | Self-hosted Docker / Kubernetes |
+| **Hosting** | Supabase (cloud) | Self-hosted Docker / Kubernetes / Azure |
 | **Database** | Supabase PostgreSQL | Dedicated PostgreSQL 17 + pgvector |
 | **Runtime** | Supabase Edge Functions (Deno) | Node.js 22 + TypeScript (ESM) |
 | **REST Framework** | Supabase routing | Hono |
@@ -1041,3 +1042,4 @@ MIT
 | [07-DEPLOYMENT.md](07-DEPLOYMENT.md) | Deployment and configuration guide |
 | [08-IMPLEMENTATION-ROADMAP.md](08-IMPLEMENTATION-ROADMAP.md) | Build order and milestones |
 | [09-SELF-HOSTED-K8S.md](09-SELF-HOSTED-K8S.md) | Kubernetes self-hosted deployment guide |
+| [10-AZURE-DEPLOYMENT.md](10-AZURE-DEPLOYMENT.md) | Azure cloud deployment (Container Apps + Azure OpenAI) |

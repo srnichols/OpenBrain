@@ -117,6 +117,7 @@ Any AI Tool (Claude, ChatGPT, Gemini, Grok)
 | [07-DEPLOYMENT.md](07-DEPLOYMENT.md) | Deployment and configuration |
 | [08-IMPLEMENTATION-ROADMAP.md](08-IMPLEMENTATION-ROADMAP.md) | Build order and milestones |
 | [09-SELF-HOSTED-K8S.md](09-SELF-HOSTED-K8S.md) | Kubernetes self-hosted deployment |
+| [10-AZURE-DEPLOYMENT.md](10-AZURE-DEPLOYMENT.md) | Azure cloud deployment (Container Apps + Azure OpenAI) |
 
 ---
 
