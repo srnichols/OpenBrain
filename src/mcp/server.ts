@@ -81,6 +81,10 @@ export function createMcpServer(): Server {
               description: "Include archived thoughts (default: false)",
               default: false,
             },
+            created_by: {
+              type: "string",
+              description: "Filter results to thoughts created by a specific user",
+            },
           },
           required: ["query"],
         },
@@ -118,6 +122,10 @@ export function createMcpServer(): Server {
               description: "Include archived thoughts (default: false)",
               default: false,
             },
+            created_by: {
+              type: "string",
+              description: "Filter results to thoughts created by a specific user",
+            },
           },
         },
       },
@@ -144,6 +152,10 @@ export function createMcpServer(): Server {
               type: "string",
               description: "UUID of a prior thought this one replaces",
             },
+            created_by: {
+              type: "string",
+              description: "User who created this thought (optional, for multi-developer provenance)",
+            },
           },
           required: ["content"],
         },
@@ -151,13 +163,17 @@ export function createMcpServer(): Server {
       {
         name: "thought_stats",
         description:
-          "Get statistics about your brain: total thoughts, type distribution, top topics, and top people mentioned. Optionally scoped to a project.",
+          "Get statistics about your brain: total thoughts, type distribution, top topics, and top people mentioned. Optionally scoped to a project or user.",
         inputSchema: {
           type: "object" as const,
           properties: {
             project: {
               type: "string",
               description: "Scope stats to a specific project",
+            },
+            created_by: {
+              type: "string",
+              description: "Scope stats to a specific user",
             },
           },
         },
@@ -225,6 +241,10 @@ export function createMcpServer(): Server {
               type: "string",
               description: "Provenance tracking (default: 'mcp')",
             },
+            created_by: {
+              type: "string",
+              description: "User who created these thoughts (optional, for multi-developer provenance)",
+            },
           },
           required: ["thoughts"],
         },
@@ -248,6 +268,7 @@ export function createMcpServer(): Server {
           const type = args?.type as string | undefined;
           const topic = args?.topic as string | undefined;
           const include_archived = (args?.include_archived as boolean) ?? false;
+          const created_by = args?.created_by as string | undefined;
 
           // Build JSONB filter from type/topic
           const filter: Record<string, unknown> = {};
@@ -256,7 +277,7 @@ export function createMcpServer(): Server {
 
           const queryEmbedding = await embedder.generateEmbedding(query);
           const results = await searchThoughts(
-            pool, queryEmbedding, limit, threshold, filter, project, include_archived
+            pool, queryEmbedding, limit, threshold, filter, project, include_archived, created_by
           );
 
           const formatted = results.map((r) => ({
@@ -284,6 +305,7 @@ export function createMcpServer(): Server {
             person: args?.person as string | undefined,
             days: args?.days as number | undefined,
             project: args?.project as string | undefined,
+            created_by: args?.created_by as string | undefined,
             include_archived: (args?.include_archived as boolean) ?? false,
           };
 
@@ -312,6 +334,7 @@ export function createMcpServer(): Server {
           const project = args?.project as string | undefined;
           const source = (args?.source as string) ?? "mcp";
           const supersedes = args?.supersedes as string | undefined;
+          const created_by = args?.created_by as string | undefined;
 
           if (supersedes && !UUID_RE.test(supersedes)) {
             return {
@@ -327,7 +350,7 @@ export function createMcpServer(): Server {
           ]);
 
           const fullMetadata = { ...metadata, source };
-          const result = await insertThought(pool, content, embedding, fullMetadata, project, supersedes);
+          const result = await insertThought(pool, content, embedding, fullMetadata, project, supersedes, created_by);
 
           return {
             content: [
@@ -354,7 +377,8 @@ export function createMcpServer(): Server {
         // ── thought_stats ──
         case "thought_stats": {
           const project = args?.project as string | undefined;
-          const stats = await getThoughtStats(pool, project);
+          const created_by = args?.created_by as string | undefined;
+          const stats = await getThoughtStats(pool, project, created_by);
 
           return {
             content: [
@@ -434,6 +458,7 @@ export function createMcpServer(): Server {
           const thoughtInputs = args?.thoughts as Array<{ content: string }>;
           const project = args?.project as string | undefined;
           const source = (args?.source as string) ?? "mcp";
+          const created_by = args?.created_by as string | undefined;
 
           // Process each thought: embed + extract metadata
           const processed: BatchThoughtInput[] = await Promise.all(
@@ -447,6 +472,7 @@ export function createMcpServer(): Server {
                 embedding,
                 metadata: { ...metadata, source },
                 project,
+                created_by,
               };
             })
           );

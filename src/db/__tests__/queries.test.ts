@@ -53,21 +53,23 @@ describe("insertThought", () => {
     mockQuery.mockResolvedValueOnce({ rows: [row] });
 
     const result = await insertThought(
-      pool, "test content", [0.1, 0.2], metadata, "plan-forge", undefined
+      pool, "test content", [0.1, 0.2], metadata, "plan-forge", undefined, undefined
     );
 
     expect(result.id).toBe("abc-123");
     expect(result.project).toBe("plan-forge");
 
-    // Verify SQL includes project and supersedes columns
+    // Verify SQL includes project, supersedes, and created_by columns
     const sql = mockQuery.mock.calls[0]![0] as string;
     expect(sql).toContain("project");
     expect(sql).toContain("supersedes");
+    expect(sql).toContain("created_by");
 
-    // Verify params include project and null supersedes
+    // Verify params include project, null supersedes, and null created_by
     const params = mockQuery.mock.calls[0]![1] as unknown[];
     expect(params[3]).toBe("plan-forge");
     expect(params[4]).toBeNull();
+    expect(params[5]).toBeNull();
   });
 
   it("inserts without project (backward compatible)", async () => {
@@ -90,6 +92,29 @@ describe("insertThought", () => {
     const params = mockQuery.mock.calls[0]![1] as unknown[];
     expect(params[3]).toBeNull(); // project
     expect(params[4]).toBeNull(); // supersedes
+    expect(params[5]).toBeNull(); // created_by
+  });
+
+  it("inserts with created_by when provided", async () => {
+    const { pool, mockQuery } = createMockPool();
+    const metadata: ThoughtMetadata = { type: "observation" };
+    const row = {
+      id: "ghi-789",
+      content: "user thought",
+      metadata,
+      project: "proj",
+      created_by: "sarah",
+      archived: false,
+      supersedes: null,
+      created_at: new Date(),
+    };
+    mockQuery.mockResolvedValueOnce({ rows: [row] });
+
+    const result = await insertThought(pool, "user thought", [0.4], metadata, "proj", undefined, "sarah");
+
+    expect(result.created_by).toBe("sarah");
+    const params = mockQuery.mock.calls[0]![1] as unknown[];
+    expect(params[5]).toBe("sarah");
   });
 });
 
@@ -103,9 +128,19 @@ describe("searchThoughts", () => {
     await searchThoughts(pool, [0.1], 10, 0.5, {}, "plan-forge", false);
 
     const params = mockQuery.mock.calls[0]![1] as unknown[];
-    // Params: embedding, threshold, limit, filter, project_filter, include_archived
+    // Params: embedding, threshold, limit, filter, project_filter, include_archived, user_filter
     expect(params[4]).toBe("plan-forge");
     expect(params[5]).toBe(false);
+  });
+
+  it("passes created_by as user_filter to match_thoughts RPC", async () => {
+    const { pool, mockQuery } = createMockPool();
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await searchThoughts(pool, [0.1], 10, 0.5, {}, "plan-forge", false, "sarah");
+
+    const params = mockQuery.mock.calls[0]![1] as unknown[];
+    expect(params[6]).toBe("sarah");
   });
 
   it("passes type and topic as JSONB filter", async () => {
@@ -130,6 +165,7 @@ describe("searchThoughts", () => {
     const params = mockQuery.mock.calls[0]![1] as unknown[];
     expect(params[4]).toBeNull();  // project
     expect(params[5]).toBe(false); // include_archived
+    expect(params[6]).toBeNull();  // created_by
   });
 });
 
@@ -154,6 +190,16 @@ describe("listThoughts", () => {
 
     const sql = mockQuery.mock.calls[0]![0] as string;
     expect(sql).toContain("archived = false");
+  });
+
+  it("filters by created_by when provided", async () => {
+    const { pool, mockQuery } = createMockPool();
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await listThoughts(pool, { created_by: "sarah" });
+
+    const sql = mockQuery.mock.calls[0]![0] as string;
+    expect(sql).toContain("created_by =");
   });
 
   it("includes archived when requested", async () => {
@@ -187,9 +233,21 @@ describe("getThoughtStats", () => {
 
     // First call (count) should include project filter
     const countSql = mockQuery.mock.calls[0]![0] as string;
-    expect(countSql).toContain("project = $1");
+    expect(countSql).toContain("project =");
     const countParams = mockQuery.mock.calls[0]![1] as unknown[];
     expect(countParams[0]).toBe("plan-forge");
+  });
+
+  it("scopes by created_by when provided", async () => {
+    const { pool, mockQuery } = createMockPool();
+    defaultMocks(mockQuery);
+
+    await getThoughtStats(pool, undefined, "sarah");
+
+    const countSql = mockQuery.mock.calls[0]![0] as string;
+    expect(countSql).toContain("created_by =");
+    const countParams = mockQuery.mock.calls[0]![1] as unknown[];
+    expect(countParams[0]).toBe("sarah");
   });
 
   it("does not filter by project when omitted", async () => {
@@ -199,7 +257,7 @@ describe("getThoughtStats", () => {
     await getThoughtStats(pool);
 
     const countSql = mockQuery.mock.calls[0]![0] as string;
-    expect(countSql).not.toContain("project = $1");
+    expect(countSql).not.toContain("project =");
   });
 });
 

@@ -61,6 +61,7 @@ describe("MCP Server Tool Listing", () => {
     expect(props.project).toBeDefined();
     expect(props.source).toBeDefined();
     expect(props.supersedes).toBeDefined();
+    expect(props.created_by).toBeDefined();
     expect(captureTool.inputSchema.required).toContain("content");
   });
 
@@ -77,6 +78,7 @@ describe("MCP Server Tool Listing", () => {
     expect(props.type).toBeDefined();
     expect(props.topic).toBeDefined();
     expect(props.include_archived).toBeDefined();
+    expect(props.created_by).toBeDefined();
   });
 
   it("list_thoughts accepts project and include_archived", async () => {
@@ -89,6 +91,7 @@ describe("MCP Server Tool Listing", () => {
 
     expect(props.project).toBeDefined();
     expect(props.include_archived).toBeDefined();
+    expect(props.created_by).toBeDefined();
   });
 
   it("thought_stats accepts project param", async () => {
@@ -98,6 +101,7 @@ describe("MCP Server Tool Listing", () => {
 
     const statsTool = result.tools.find((t: any) => t.name === "thought_stats");
     expect(statsTool.inputSchema.properties.project).toBeDefined();
+    expect(statsTool.inputSchema.properties.created_by).toBeDefined();
   });
 
   it("update_thought requires id and content", async () => {
@@ -130,6 +134,7 @@ describe("MCP Server Tool Listing", () => {
     expect(props.thoughts.type).toBe("array");
     expect(props.project).toBeDefined();
     expect(props.source).toBeDefined();
+    expect(props.created_by).toBeDefined();
     expect(batchTool.inputSchema.required).toContain("thoughts");
   });
 });

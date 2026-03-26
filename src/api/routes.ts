@@ -55,6 +55,7 @@ export function createApi(): Hono {
       content: string;
       source?: string;
       project?: string;
+      created_by?: string;
       supersedes?: string;
     }>();
 
@@ -74,7 +75,7 @@ export function createApi(): Hono {
 
       const fullMetadata = { ...metadata, source: body.source ?? "api" };
       const result = await insertThought(
-        pool, body.content, embedding, fullMetadata, body.project, body.supersedes
+        pool, body.content, embedding, fullMetadata, body.project, body.supersedes, body.created_by
       );
 
       return c.json({
@@ -101,6 +102,7 @@ export function createApi(): Hono {
     const body = await c.req.json<{
       thoughts: Array<{ content: string }>;
       project?: string;
+      created_by?: string;
       source?: string;
     }>();
 
@@ -128,6 +130,7 @@ export function createApi(): Hono {
             embedding,
             metadata: { ...metadata, source },
             project: body.project,
+            created_by: body.created_by,
           };
         })
       );
@@ -162,6 +165,7 @@ export function createApi(): Hono {
       limit?: number;
       threshold?: number;
       project?: string;
+      created_by?: string;
       type?: string;
       topic?: string;
       include_archived?: boolean;
@@ -185,7 +189,8 @@ export function createApi(): Hono {
         body.threshold ?? 0.5,
         filter,
         body.project,
-        body.include_archived
+        body.include_archived,
+        body.created_by
       );
 
       return c.json({
@@ -222,6 +227,7 @@ export function createApi(): Hono {
           content: r.content,
           metadata: r.metadata,
           project: r.project,
+          created_by: r.created_by,
           created_at: r.created_at.toISOString(),
         })),
       });
@@ -310,7 +316,8 @@ export function createApi(): Hono {
   app.get("/stats", async (c) => {
     try {
       const project = c.req.query("project");
-      const stats = await getThoughtStats(pool, project);
+      const created_by = c.req.query("created_by");
+      const stats = await getThoughtStats(pool, project, created_by);
       return c.json(stats);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

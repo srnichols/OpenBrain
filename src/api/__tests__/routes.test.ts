@@ -136,7 +136,7 @@ describe("REST API Routes", () => {
 
     expect(res.status).toBe(200);
 
-    // Verify searchThoughts was called with project and include_archived
+    // Verify searchThoughts was called with project, include_archived, and created_by
     expect(mockSearchThoughts).toHaveBeenCalled();
     const callArgs = mockSearchThoughts.mock.calls[0]!;
     expect(callArgs[5]).toBe("plan-forge"); // project param

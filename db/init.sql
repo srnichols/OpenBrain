@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS thoughts (
     embedding  VECTOR(768),
     metadata   JSONB       DEFAULT '{}'::jsonb,
     project    TEXT,
+    created_by TEXT,
     archived   BOOLEAN     DEFAULT false,
     supersedes UUID        REFERENCES thoughts(id),
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -50,6 +51,10 @@ CREATE INDEX IF NOT EXISTS idx_thoughts_created_at
 CREATE INDEX IF NOT EXISTS idx_thoughts_project
     ON thoughts(project);
 
+-- B-tree index for user scoping
+CREATE INDEX IF NOT EXISTS idx_thoughts_created_by
+    ON thoughts(created_by);
+
 -- Partial index for non-archived thoughts
 CREATE INDEX IF NOT EXISTS idx_thoughts_archived
     ON thoughts(archived) WHERE archived = false;
@@ -65,7 +70,8 @@ CREATE OR REPLACE FUNCTION match_thoughts(
     match_count      INT     DEFAULT 10,
     filter           JSONB   DEFAULT '{}'::jsonb,
     project_filter   TEXT    DEFAULT NULL,
-    include_archived BOOLEAN DEFAULT false
+    include_archived BOOLEAN DEFAULT false,
+    user_filter      TEXT    DEFAULT NULL
 )
 RETURNS TABLE (
     id         UUID,
@@ -90,6 +96,7 @@ BEGIN
         AND t.metadata @> filter
         AND (project_filter IS NULL OR t.project = project_filter)
         AND (include_archived OR t.archived = false)
+        AND (user_filter IS NULL OR t.created_by = user_filter)
     ORDER BY t.embedding <=> query_embedding ASC
     LIMIT match_count;
 END;
