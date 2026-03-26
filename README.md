@@ -102,7 +102,12 @@ curl http://localhost:8000/health
 # MCP server health
 curl http://localhost:8080/health
 # {"status":"healthy","service":"open-brain-mcp"}
+
+# Run integration tests (full CRUD verification)
+OPENBRAIN_API_URL=http://localhost:8000 npm run test:integration
 ```
+
+The integration test suite runs 27 tests covering every endpoint — capture, batch, search, list, stats, update, delete — including `created_by` filtering, validation errors, and a full lifecycle test. All test data is auto-cleaned after the run.
 
 ### 5. Connect an AI client
 

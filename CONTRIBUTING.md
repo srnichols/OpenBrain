@@ -94,12 +94,37 @@ chore(deps): update vitest to 4.2
 
 ## Testing
 
+### Unit Tests
+
 - **Framework**: Vitest
 - **Run**: `npm test`
 - **Pattern**: Unit tests with mocked pg pool and embedder
 - **Location**: `src/**/__tests__/*.test.ts`
 
-All new features must include tests. All existing tests must continue to pass.
+All new features must include unit tests. All existing tests must continue to pass.
+
+### Integration Tests
+
+- **Run**: `npm run test:integration`
+- **Requires**: A running Open Brain server (local or remote)
+- **Location**: `src/__integration__/*.test.ts`
+- **Coverage**: 27 tests — full CRUD lifecycle, validation, filtering, created_by
+
+Set `OPENBRAIN_API_URL` to point at your deployment:
+
+```bash
+# Local Docker Compose
+OPENBRAIN_API_URL=http://localhost:8000 npm run test:integration
+
+# K8s via port-forward
+kubectl port-forward -n openbrain svc/openbrain-api 8000:8000
+OPENBRAIN_API_URL=http://localhost:8000 npm run test:integration
+
+# Remote
+OPENBRAIN_API_URL=https://your-host npm run test:integration
+```
+
+Integration tests auto-clean up all created test data. They are excluded from `npm test` to keep the unit test run fast.
 
 ## Pull Request Process
 
