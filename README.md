@@ -6,9 +6,37 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-7_tools-8A2BE2)](https://modelcontextprotocol.io/)
 
-**Personal semantic memory system that gives every AI tool persistent, searchable memory.**
+**Persistent, searchable memory for every AI tool you use — solo or as a small team.**
 
-Open Brain solves the fundamental problem that every AI conversation starts from zero. Your context, decisions, preferences, and knowledge are locked inside individual chat sessions and platforms. Open Brain is a unified backend that any MCP-compatible AI client can read from and write to.
+### The Problem
+
+Every AI conversation starts from zero. You explained your architecture to Claude last week, made a caching decision in ChatGPT yesterday, and now Cursor has no idea about either. Your knowledge is scattered across platforms, locked inside sessions that expire.
+
+### The Solution
+
+Open Brain is a shared memory backend that any MCP-compatible AI tool can read from and write to. Capture a thought from Claude, search for it from Cursor, review it from ChatGPT — all hitting the same database of your decisions, patterns, and context.
+
+```
+You: "Remember that we chose Redis for session caching."
+     → Claude calls capture_thought → stored with embedding + auto-extracted metadata
+
+Later, from any tool:
+You: "What did we decide about caching?"
+     → Cursor calls search_thoughts → finds it by meaning, not keywords
+     → "Decision: Redis for session caching. Reason: ..."
+```
+
+### Why Set It Up?
+
+- **Your AI gets smarter over time** — every captured thought compounds into a richer knowledge base
+- **Switch AI tools freely** — your context travels with you, not locked to one vendor
+- **Small teams (1-3 devs) share context** — tag thoughts with `created_by` so the whole team's decisions are searchable, filterable by person
+- **Decisions survive** — months later, ask "why did we choose PostgreSQL over MongoDB?" and get the exact reasoning
+- **Works with what you already use** — Claude, ChatGPT, Gemini, Cursor, VS Code Copilot, Windsurf, and any MCP client
+
+### Works Great With Plan Forge
+
+If you use [Plan Forge](https://github.com/srnichols/plan-forge) for agentic project execution, Open Brain is the memory layer. Plan Forge's agents can capture architecture decisions, patterns, and postmortems during execution, then retrieve that context in future projects. See [Plan Forge's Unified System Architecture](https://github.com/srnichols/plan-forge/blob/master/docs/UNIFIED-SYSTEM-ARCHITECTURE.md) for how the two systems integrate.
 
 > Based on [Nate B Jones'](https://www.natebjones.com) Open Brain architecture. This is a **significantly extended** self-hosted implementation — see [Differences from Nate's Original](#differences-from-nates-original) below.
 
@@ -34,13 +62,15 @@ You capture a thought from **any AI client**. Open Brain generates a vector embe
 
 ## Features
 
-- **Semantic Search** - Find thoughts by meaning using pgvector cosine similarity
-- **Auto-Metadata Extraction** - LLM automatically classifies type, topics, people, action items on capture
-- **MCP Protocol** - Works with Claude, ChatGPT, Gemini, Cursor, and any MCP-compatible client
-- **REST API** - Direct HTTP access for integrations, webhooks, and non-MCP tools
-- **Dual Embedder** - Choose between local Ollama (free, private) or OpenRouter (cloud)
-- **Self-Hosted** - Your data never leaves your infrastructure
-- **Docker & Kubernetes** - Deploy locally with docker-compose or to a K8s cluster
+- **Semantic Search** — Find thoughts by *meaning*, not keywords. Ask "what did we decide about caching?" and get results even if you never used the word "caching" in the original thought.
+- **Auto-Metadata Extraction** — Every thought is automatically classified: type (decision, pattern, bug, etc.), topics, people mentioned, action items, dates. No manual tagging.
+- **9 AI Clients Supported** — Claude Code, Claude Desktop, Cursor, Windsurf, VS Code Copilot, ChatGPT, Gemini, Grok, and any MCP-compatible client.
+- **REST API** — Direct HTTP access for scripts, webhooks, CI/CD integrations, and non-MCP tools. Every MCP tool has a REST equivalent.
+- **Multi-Developer Teams** — Optional `created_by` field lets 1-3 devs share one instance with per-user filtering.
+- **Project Scoping** — Isolate thoughts per project. Search within "ecommerce-api" without noise from "internal-tools".
+- **4 Deployment Options** — Docker Compose (free, 5 min), Azure (managed, ~$15/mo), Kubernetes (homelab), or Supabase (cloud).
+- **Self-Hosted & Private** — Your data stays on your infrastructure. No vendor lock-in.
+- **27-Test Integration Suite** — Run `npm run test:integration` against any deployment to verify everything works.
 
 ---
 
