@@ -509,7 +509,7 @@ Every MCP tool has a REST API counterpart on port 8000, documented in the [READM
 - **Cause**: The `/messages` endpoint is returning 401, triggering mcp-remote's OAuth flow
 - **Fix**: Auth must only be enforced on `/sse`, not on `/messages`. The session ID on `/messages` already proves authentication. Check `src/index.ts`.
 
-### Claude Desktop doesn't show OpenBrain tools
+### Claude Desktop doesn't show Open Brain tools
 - Verify config file: `%APPDATA%\Claude\claude_desktop_config.json`
 - Must have `mcpServers.openbrain` entry — Claude Desktop may overwrite on launch
 - Fully quit (system tray → Quit) and relaunch after config changes
