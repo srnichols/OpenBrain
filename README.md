@@ -10,19 +10,19 @@
 
 ### The Problem
 
-Every AI conversation starts from zero. You explained your architecture to Claude last week, made a caching decision in ChatGPT yesterday, and now Cursor has no idea about either. Your knowledge is scattered across platforms, locked inside sessions that expire.
+Every AI conversation starts from zero. You explained your architecture to Claude last week, made a caching decision in ChatGPT yesterday, captured a pattern in GitHub Copilot this morning, and now Cursor has no idea about any of it. Your knowledge is scattered across platforms, locked inside sessions that expire.
 
 ### The Solution
 
-Open Brain is a shared memory backend that any MCP-compatible AI tool can read from and write to. Capture a thought from Claude, search for it from Cursor, review it from ChatGPT — all hitting the same database of your decisions, patterns, and context.
+Open Brain is a shared memory backend that any MCP-compatible AI tool can read from and write to. Capture a thought from GitHub Copilot, search for it from Claude, review it from ChatGPT — all hitting the same database of your decisions, patterns, and context.
 
 ```
 You: "Remember that we chose Redis for session caching."
-     → Claude calls capture_thought → stored with embedding + auto-extracted metadata
+     → GitHub Copilot calls capture_thought → stored with embedding + auto-extracted metadata
 
 Later, from any tool:
 You: "What did we decide about caching?"
-     → Cursor calls search_thoughts → finds it by meaning, not keywords
+     → Claude calls search_thoughts → finds it by meaning, not keywords
      → "Decision: Redis for session caching. Reason: ..."
 ```
 
@@ -32,7 +32,7 @@ You: "What did we decide about caching?"
 - **Switch AI tools freely** — your context travels with you, not locked to one vendor
 - **Small teams (1-3 devs) share context** — tag thoughts with `created_by` so the whole team's decisions are searchable, filterable by person
 - **Decisions survive** — months later, ask "why did we choose PostgreSQL over MongoDB?" and get the exact reasoning
-- **Works with what you already use** — Claude, ChatGPT, Gemini, Cursor, VS Code Copilot, Windsurf, and any MCP client
+- **Works with what you already use** — GitHub Copilot, VS Code, Claude, ChatGPT, Gemini, Cursor, Windsurf, and any MCP client
 
 ### Works Great With Plan Forge
 
