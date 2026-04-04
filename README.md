@@ -115,6 +115,27 @@ Open Brain supports four deployment options. Pick the one that matches your setu
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - [Ollama](https://ollama.com) running locally (or an OpenRouter API key)
 
+### Option A: Easy Button — Paste One Prompt
+
+Open Copilot Chat (Agent Mode), Claude Code, or Cursor and paste the prompt from [`EASY-SETUP.md`](EASY-SETUP.md). Your AI will check prerequisites, ask a few questions, generate `.env`, start Docker, configure your client, and verify — zero manual steps.
+
+### Option B: Setup Wizard Script
+
+```bash
+git clone https://github.com/srnichols/OpenBrain.git
+cd OpenBrain
+
+# PowerShell (Windows)
+.\setup.ps1
+
+# Bash (macOS / Linux)
+chmod +x setup.sh && ./setup.sh
+```
+
+The wizard checks Docker/Ollama, asks which embedder and AI client, generates `.env` with secure random keys, starts Docker Compose, waits for health, and configures your MCP client.
+
+### Option C: Manual Setup
+
 ### 1. Clone and configure
 
 ```bash

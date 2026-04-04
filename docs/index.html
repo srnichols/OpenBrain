@@ -337,23 +337,92 @@
         <div class="max-w-4xl mx-auto">
             <div class="text-center mb-12">
                 <h2 class="text-3xl font-bold mb-4">Quick start</h2>
-                <p class="text-gray-500">Clone, configure, run. Three commands to persistent AI memory.</p>
+                <p class="text-gray-500">One setup script or one prompt — your AI does the rest.</p>
             </div>
+
+            <!-- Easy Button -->
+            <details class="group mb-6 rounded-xl border-2 border-brand-300 bg-gradient-to-br from-brand-50/60 to-white overflow-hidden">
+                <summary class="flex items-center justify-between px-6 py-4 cursor-pointer list-none hover:bg-brand-50/40 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-700 text-xs font-bold border border-brand-200">⚡ EASY BUTTON</span>
+                        <span class="font-semibold text-sm">Paste one prompt — your AI installs everything automatically</span>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="px-6 pb-6 border-t border-brand-100 pt-5">
+                    <p class="text-sm text-gray-500 mb-4">Open Copilot Chat (Agent Mode), Claude Code, or Cursor in your project — paste this prompt. The AI checks prerequisites, asks a few questions, generates your .env, starts Docker Compose, configures your client, and verifies everything works.</p>
+                    <div class="rounded-xl bg-gray-900 border border-brand-200 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-2.5 bg-brand-50 border-b border-brand-100">
+                            <span class="text-xs text-brand-700 font-semibold">Paste into any AI chat — Copilot, Claude, Cursor</span>
+                            <button onclick="copyEasyButton(this)" class="text-xs text-gray-500 hover:text-brand-600 transition-colors cursor-pointer">Copy</button>
+                        </div>
+                        <pre class="p-5 text-sm text-gray-200 overflow-x-auto whitespace-pre-wrap"><code id="easy-button-prompt">I want to set up Open Brain — a persistent semantic memory system for AI tools.
+Clone https://github.com/srnichols/OpenBrain.git (or use the existing repo if already cloned).
+
+Follow these steps exactly:
+
+1. Check prerequisites: Verify Docker, Docker Compose, and optionally Ollama are installed.
+
+2. Ask me these questions (wait for answers before proceeding):
+   - Which embedding provider? (ollama = free/local, openrouter = cloud/paid, azure-openai = Azure)
+   - If openrouter or azure-openai: What are the API credentials?
+   - Which AI client should I configure? (VS Code Copilot / Claude Desktop / Claude Code / Skip)
+
+3. Generate .env from .env.example with a secure random MCP_ACCESS_KEY and DB_PASSWORD.
+   Set DB_HOST=postgres, OLLAMA_ENDPOINT=http://host.docker.internal:11434 if using Ollama.
+
+4. Run: docker compose up -d --build
+
+5. Wait for http://localhost:8000/health and http://localhost:8080/health to return healthy.
+
+6. Configure my chosen AI client with the MCP server URL and key.
+
+7. Verify by calling the thought_stats MCP tool.
+
+8. Show me a summary of what was installed and next steps.</code></pre>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3 text-center">Works with GitHub Copilot (Agent Mode), Claude Code, Claude Desktop, Cursor, or any AI tool with terminal access.</p>
+                </div>
+            </details>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-4 mb-6">
+                <div class="flex-1 h-px bg-gray-200"></div>
+                <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">or run the setup script</span>
+                <div class="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            <!-- Setup script -->
+            <div class="bg-gray-900 rounded-xl p-6 text-sm font-mono text-gray-300 overflow-x-auto mb-6">
+                <div class="text-gray-500 mb-4"># Clone and run the setup wizard</div>
+                <div><span class="text-brand-400">$</span> git clone https://github.com/srnichols/OpenBrain.git</div>
+                <div><span class="text-brand-400">$</span> cd OpenBrain</div>
+                <div class="mt-2 text-gray-500"># PowerShell (Windows)</div>
+                <div><span class="text-brand-400">$</span> .\setup.ps1</div>
+                <div class="mt-2 text-gray-500"># Bash (macOS / Linux)</div>
+                <div><span class="text-brand-400">$</span> chmod +x setup.sh && ./setup.sh</div>
+                <div class="mt-4 text-gray-500"># The wizard will:</div>
+                <div class="text-green-400">  ✓ Check Docker, Ollama, Node.js</div>
+                <div class="text-green-400">  ✓ Ask which embedder (ollama / openrouter / azure-openai)</div>
+                <div class="text-green-400">  ✓ Generate .env with secure random keys</div>
+                <div class="text-green-400">  ✓ Start Docker Compose and wait for health</div>
+                <div class="text-green-400">  ✓ Configure your AI client (Copilot / Claude / Claude Code)</div>
+            </div>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-4 mb-6">
+                <div class="flex-1 h-px bg-gray-200"></div>
+                <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">or do it manually</span>
+                <div class="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            <!-- Manual steps -->
             <div class="bg-gray-900 rounded-xl p-6 text-sm font-mono text-gray-300 overflow-x-auto">
-                <div class="text-gray-500 mb-4"># Clone and start</div>
+                <div class="text-gray-500 mb-4"># Manual setup</div>
                 <div><span class="text-brand-400">$</span> git clone https://github.com/srnichols/OpenBrain.git</div>
                 <div><span class="text-brand-400">$</span> cd OpenBrain</div>
                 <div><span class="text-brand-400">$</span> cp .env.example .env   <span class="text-gray-500"># edit with your keys</span></div>
                 <div><span class="text-brand-400">$</span> docker compose up -d</div>
-                <div class="text-gray-500 mt-6 mb-4"># Add to VS Code Copilot or Claude Desktop config</div>
-                <div class="text-green-400">{</div>
-                <div class="text-green-400">  "mcpServers": {</div>
-                <div class="text-green-400">    "openbrain": {</div>
-                <div class="text-green-400">      "command": "npx",</div>
-                <div class="text-green-400">      "args": ["-y", "mcp-remote", "http://localhost:8080/sse?key=YOUR_KEY"]</div>
-                <div class="text-green-400">    }</div>
-                <div class="text-green-400">  }</div>
-                <div class="text-green-400">}</div>
                 <div class="text-gray-500 mt-6 mb-4"># Verify</div>
                 <div><span class="text-brand-400">$</span> curl http://localhost:8000/health</div>
                 <div class="text-green-400">{"status":"healthy","service":"open-brain-api"}</div>
@@ -385,6 +454,18 @@
         btn.addEventListener('click', () => menu.classList.toggle('hidden'));
         // Close mobile menu on link click
         menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => menu.classList.add('hidden')));
+
+        // Copy easy button prompt
+        function copyEasyButton(el) {
+            const code = document.getElementById('easy-button-prompt');
+            if (code) {
+                navigator.clipboard.writeText(code.innerText);
+                const orig = el.textContent;
+                el.textContent = 'Copied!';
+                el.style.color = '#7e22ce';
+                setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 2000);
+            }
+        }
     </script>
 </body>
 </html>
