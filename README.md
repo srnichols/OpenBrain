@@ -49,7 +49,7 @@ If you use [Plan Forge](https://github.com/srnichols/plan-forge) for agentic pro
 
 ```mermaid
 flowchart TD
-    A[Any AI Tool\nClaude · ChatGPT · Cursor · Copilot · Windsurf · Gemini] -->|MCP Protocol| B[Open Brain Server\nREST :8000 · MCP :8080]
+    A[Any AI Tool\nCopilot · Claude · ChatGPT · Cursor · Windsurf · Gemini] -->|MCP Protocol| B[Open Brain Server\nREST :8000 · MCP :8080]
     B -->|Generate embedding\n+ extract metadata| C[Ollama or Azure OpenAI]
     B -->|Store & search| D[(PostgreSQL + pgvector\nVector similarity search)]
     D -->|Ranked results| B
@@ -83,7 +83,7 @@ flowchart LR
 
 - **Semantic Search** — Find thoughts by *meaning*, not keywords. Ask "what did we decide about caching?" and get results even if you never used the word "caching" in the original thought.
 - **Auto-Metadata Extraction** — Every thought is automatically classified: type (decision, pattern, bug, etc.), topics, people mentioned, action items, dates. No manual tagging.
-- **9 AI Clients Supported** — Claude Code, Claude Desktop, Cursor, Windsurf, VS Code Copilot, ChatGPT, Gemini, Grok, and any MCP-compatible client.
+- **9 AI Clients Supported** — VS Code Copilot, Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT, Gemini, Grok, and any MCP-compatible client.
 - **REST API** — Direct HTTP access for scripts, webhooks, CI/CD integrations, and non-MCP tools. Every MCP tool has a REST equivalent.
 - **Multi-Developer Teams** — Optional `created_by` field lets 1-3 devs share one instance with per-user filtering.
 - **Project Scoping** — Isolate thoughts per project. Search within "ecommerce-api" without noise from "internal-tools".

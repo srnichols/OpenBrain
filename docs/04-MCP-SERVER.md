@@ -6,7 +6,7 @@
 
 ## What Is MCP?
 
-**Model Context Protocol (MCP)** is Anthropic's open standard for connecting AI assistants to external tools and data sources. It enables any compatible AI client (Claude, ChatGPT, Gemini, Cursor) to call tools exposed by an MCP server over HTTP.
+**Model Context Protocol (MCP)** is Anthropic's open standard for connecting AI assistants to external tools and data sources. It enables any compatible AI client (VS Code Copilot, Claude, ChatGPT, Gemini, Cursor) to call tools exposed by an MCP server over HTTP.
 
 Open Brain's MCP server exposes seven tools for reading, writing, updating, and deleting thoughts in your memory database.
 
@@ -15,7 +15,7 @@ Open Brain's MCP server exposes seven tools for reading, writing, updating, and 
 ## Server Architecture
 
 ```
-AI Client (Claude, ChatGPT, etc.)
+AI Client (Copilot, Claude, ChatGPT, etc.)
     ↓ HTTP POST (MCP protocol)
     ↓ Auth: x-brain-key header or ?key= param
     ↓

@@ -85,7 +85,7 @@
                 <p class="text-lg text-gray-500 mb-8">Persistent, searchable memory for every AI tool you use.</p>
 
                 <h2 class="text-2xl font-bold mt-12 mb-4">What is Open Brain?</h2>
-                <p class="text-gray-600 leading-relaxed mb-4">Open Brain is a personal, database-backed AI knowledge system that gives every AI tool persistent memory. Based on <a href="https://www.natebjones.com" class="text-brand-600 hover:underline">Nate B Jones'</a> architecture, it turns your scattered conversations across Claude, ChatGPT, Cursor, and other tools into a single, searchable knowledge base.</p>
+                <p class="text-gray-600 leading-relaxed mb-4">Open Brain is a personal, database-backed AI knowledge system that gives every AI tool persistent memory. Based on <a href="https://www.natebjones.com" class="text-brand-600 hover:underline">Nate B Jones'</a> architecture, it turns your scattered conversations across Copilot, Claude, ChatGPT, Cursor, and other tools into a single, searchable knowledge base.</p>
 
                 <div class="p-4 rounded-lg border border-brand-100 bg-brand-50/30 text-sm my-6">
                     <strong>Credit:</strong> Open Brain was originally created by <a href="https://www.natebjones.com" class="text-brand-600 hover:underline">Nate B Jones</a>.
@@ -135,7 +135,7 @@
                 <h2 class="text-2xl font-bold mb-4">Architecture</h2>
                 <p class="text-gray-600 leading-relaxed mb-6">Open Brain has a simple, layered architecture — AI clients talk to the MCP server via SSE, which handles tool dispatch, embedding generation, metadata extraction, and database operations.</p>
 
-                <pre><code>AI Client (Claude, ChatGPT, Cursor, etc.)
+                <pre><code>AI Client (Copilot, Claude, ChatGPT, Cursor, etc.)
     ↓ MCP Protocol (SSE transport)
     ↓ Auth: x-brain-key header or ?key= param
     ↓
@@ -332,7 +332,7 @@ POST /messages?sessionId=xxx           → JSON-RPC calls (no key needed)</code>
                 <div class="space-y-4">
                     <div class="p-4 rounded-lg border border-gray-100">
                         <h4 class="font-semibold text-sm mb-1">Prompt 1: Memory Migration</h4>
-                        <p class="text-sm text-gray-500">Import memories from Claude, ChatGPT, or other AI platforms into Open Brain.</p>
+                        <p class="text-sm text-gray-500">Import memories from Copilot, Claude, ChatGPT, or other AI platforms into Open Brain.</p>
                     </div>
                     <div class="p-4 rounded-lg border border-gray-100">
                         <h4 class="font-semibold text-sm mb-1">Prompt 2: Second Brain Migration</h4>

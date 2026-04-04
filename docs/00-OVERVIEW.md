@@ -20,7 +20,7 @@ Open Brain is a **self-hosted personal knowledge system** where AI agents can sa
 One PostgreSQL database + one MCP server = every AI tool has access to your persistent memory.
 
 ```
-Any AI Tool (Claude, ChatGPT, Gemini, Grok)
+Any AI Tool (Copilot, Claude, ChatGPT, Gemini, Grok)
         ↓ MCP Protocol
    Open Brain MCP Server
         ↓
@@ -80,7 +80,7 @@ Any AI Tool (Claude, ChatGPT, Gemini, Grok)
 - Save thoughts from any AI tool via MCP `capture_thought` tool
 - Slack webhook integration for frictionless capture
 - Bulk import from existing systems (Notion, Obsidian, Apple Notes)
-- Memory migration from ChatGPT, Claude, etc.
+- Memory migration from Copilot, ChatGPT, Claude, etc.
 - Optional `created_by` user tracking for multi-developer teams
 
 ### Search

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Open Brain — Persistent Memory for Every AI Tool</title>
-    <meta name="description" content="Persistent, searchable memory for every AI tool you use. Semantic vector search, automatic metadata extraction, works with Claude, ChatGPT, Cursor, Copilot, and more.">
+    <meta name="description" content="Persistent, searchable memory for every AI tool you use. Semantic vector search, automatic metadata extraction, works with Copilot, Claude, ChatGPT, Cursor, and more.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
@@ -79,7 +79,7 @@
                 <span class="text-brand-600">every AI tool</span> you use
             </h1>
             <p class="text-xl text-gray-500 max-w-2xl mx-auto mb-4 leading-relaxed">
-                A unified semantic memory backend that works across Claude, ChatGPT, Cursor, Copilot, Gemini, and more. Search by meaning, not keywords. Your data stays yours.
+                A unified semantic memory backend that works across Copilot, Claude, ChatGPT, Cursor, Gemini, and more. Search by meaning, not keywords. Your data stays yours.
             </p>
             <p class="text-sm text-gray-400 mb-10">Original architecture by <a href="https://www.natebjones.com" class="text-brand-600 hover:underline">Nate B Jones</a> &middot; Extended &amp; self-hosted by <a href="https://github.com/srnichols" class="text-brand-600 hover:underline">Scott Nichols</a></p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -146,7 +146,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </div>
                     <h3 class="font-semibold mb-2">MCP Native</h3>
-                    <p class="text-sm text-gray-500 leading-relaxed">Built on Anthropic's Model Context Protocol. Works with any MCP-compatible client — Claude, ChatGPT, Cursor, Copilot, Gemini.</p>
+                    <p class="text-sm text-gray-500 leading-relaxed">Built on the Model Context Protocol standard. Works with any MCP-compatible client — Copilot, Claude, ChatGPT, Cursor, Gemini.</p>
                 </div>
                 <!-- Feature 4 -->
                 <div class="p-6 rounded-xl border border-gray-100 hover:border-brand-200 hover:shadow-sm transition">
@@ -319,9 +319,9 @@
                 <p class="text-gray-500 max-w-2xl mx-auto">One memory backend, every AI client. Open Brain speaks MCP so your tools don't need to.</p>
             </div>
             <div class="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
+                <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">VS Code Copilot</div>
                 <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">Claude Desktop</div>
                 <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">Claude Code</div>
-                <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">VS Code Copilot</div>
                 <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">Cursor</div>
                 <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">ChatGPT</div>
                 <div class="px-5 py-3 rounded-lg border border-gray-100 bg-white">Gemini</div>
@@ -345,7 +345,7 @@
                 <div><span class="text-brand-400">$</span> cd OpenBrain</div>
                 <div><span class="text-brand-400">$</span> cp .env.example .env   <span class="text-gray-500"># edit with your keys</span></div>
                 <div><span class="text-brand-400">$</span> docker compose up -d</div>
-                <div class="text-gray-500 mt-6 mb-4"># Add to Claude Desktop config</div>
+                <div class="text-gray-500 mt-6 mb-4"># Add to VS Code Copilot or Claude Desktop config</div>
                 <div class="text-green-400">{</div>
                 <div class="text-green-400">  "mcpServers": {</div>
                 <div class="text-green-400">    "openbrain": {</div>
