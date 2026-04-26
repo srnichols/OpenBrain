@@ -1,0 +1,182 @@
+# Daily PostgreSQL logical backup for OpenBrain (on-prem k8s).
+#
+# Pattern adopted from upick-prod (`postgres-prod-logical-backup`):
+#   - Runner image: bitnami/kubectl — execs into openbrain-postgres-0
+#     and runs pg_dump via the in-pod socket (no PGPASSWORD over network).
+#   - Backup target: NAS hostPath /mnt/nas-backup/postgresql/openbrain
+#     (already mounted on every node from //192.168.68.100/F-Share/Databases).
+#   - Sanity check: MIN_BACKUP_SIZE guards against silent empty dumps.
+#   - Manifest JSON: per-table sizes/row counts for restore verification.
+#   - Retention: 30 days (production memory store — longer than rummag-dev's 14d).
+#
+# pgvector note: pgvector/pgvector:pg17 image. plain pg_dump emits
+# `CREATE EXTENSION vector;` and the column data; restore on a host with
+# pgvector available is fully supported.
+#
+# Schedule offset: 02:00 UTC, before rummag-dev (04:00) and upick-prod
+# windows, so all three never compete for NAS IO.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openbrain-pg-logical-backup
+  namespace: openbrain
+  labels:
+    app: openbrain
+    component: postgres
+    tier: backup
+spec:
+  schedule: "0 2 * * *"       # 02:00 UTC daily
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800   # 30 min cap
+      ttlSecondsAfterFinished: 604800   # auto-cleanup completed Jobs after 7d
+      template:
+        metadata:
+          labels:
+            app: openbrain
+            component: postgres
+            tier: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: openbrain-pg-maintenance
+          securityContext:
+            runAsNonRoot: false   # bitnami/kubectl runs as root; backup dir owned by root on NAS
+          containers:
+            - name: pg-backup
+              # bitnami/kubectl publishes only :latest plus immutable digest
+              # tags on docker.io. Pinned-version tags (e.g. :1.31) do NOT exist.
+              image: bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  NS="${POD_NAMESPACE}"
+                  DB="${POSTGRES_DB}"
+                  USER="${POSTGRES_USER}"
+                  POD="openbrain-postgres-0"
+                  BACKUP_DATE=$(date -u +%Y%m%d_%H%M%S)
+                  BACKUP_DIR=/backup/logical_backups
+                  BACKUP_FILE="${BACKUP_DIR}/${DB}_${BACKUP_DATE}.sql"
+                  BACKUP_GZ="${BACKUP_FILE}.gz"
+                  MANIFEST="${BACKUP_DIR}/manifest_${BACKUP_DATE}.json"
+                  LOG_FILE="${BACKUP_DIR}/backup_${BACKUP_DATE}.log"
+                  RETENTION_DAYS=30
+                  MIN_BACKUP_SIZE=10000   # 10 KB — anything smaller means dump failed silently
+
+                  echo "========================================"
+                  echo "openbrain logical backup — ${BACKUP_DATE}"
+                  echo "  Namespace: ${NS}"
+                  echo "  Pod:       ${POD}"
+                  echo "  Database:  ${DB}"
+                  echo "========================================"
+
+                  mkdir -p "${BACKUP_DIR}"
+
+                  # --- Pre-flight: confirm pod is reachable and DB exists ---
+                  echo "Pre-flight: pg_isready..."
+                  kubectl exec -n "${NS}" "${POD}" -- pg_isready -U "${USER}" -d "${DB}" -t 10
+
+                  echo "Pre-flight: verify database exists..."
+                  DB_EXISTS=$(kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -tAc "SELECT 1 FROM pg_database WHERE datname='${DB}'" 2>/dev/null || echo "")
+                  if [ "${DB_EXISTS}" != "1" ]; then
+                    echo "ERROR: database ${DB} not found"
+                    exit 1
+                  fi
+                  echo "OK — database ${DB} present"
+
+                  echo "Pre-flight: verify pgvector extension..."
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -tAc \
+                      "SELECT extname || ' ' || extversion FROM pg_extension WHERE extname='vector';" 2>/dev/null || echo "  (vector extension not installed — backup will still proceed)"
+
+                  # --- Stage 1: pg_dump ---
+                  echo ""
+                  echo "Stage 1: pg_dump → ${BACKUP_FILE}"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    pg_dump -U "${USER}" -d "${DB}" \
+                      --no-owner --no-privileges --clean --if-exists \
+                      --format=plain \
+                    > "${BACKUP_FILE}" 2>>"${LOG_FILE}"
+
+                  # --- Stage 2: compress ---
+                  echo ""
+                  echo "Stage 2: gzip"
+                  gzip -f "${BACKUP_FILE}"
+
+                  BACKUP_SIZE=$(stat -c%s "${BACKUP_GZ}" 2>/dev/null || echo 0)
+                  if [ "${BACKUP_SIZE}" -lt "${MIN_BACKUP_SIZE}" ]; then
+                    echo "ERROR: backup ${BACKUP_GZ} is ${BACKUP_SIZE} bytes (< ${MIN_BACKUP_SIZE}) — likely failed"
+                    tail -50 "${LOG_FILE}" || true
+                    rm -f "${BACKUP_GZ}"
+                    exit 1
+                  fi
+                  SIZE_HUMAN=$(du -h "${BACKUP_GZ}" | cut -f1)
+                  echo "OK — compressed size: ${SIZE_HUMAN}"
+
+                  # --- Stage 3: manifest (per-table sizes & row counts) ---
+                  echo ""
+                  echo "Stage 3: manifest"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -tAc "
+                      SELECT json_agg(row_to_json(t))
+                      FROM (
+                        SELECT schemaname,
+                               relname  AS tablename,
+                               n_live_tup AS row_count,
+                               pg_size_pretty(pg_total_relation_size(relid)) AS size
+                        FROM pg_stat_user_tables
+                        ORDER BY pg_total_relation_size(relid) DESC
+                      ) t;" \
+                    > "${MANIFEST}" 2>>"${LOG_FILE}" || true
+
+                  # --- Stage 4: retention ---
+                  echo ""
+                  echo "Stage 4: prune backups older than ${RETENTION_DAYS} days"
+                  find "${BACKUP_DIR}" -maxdepth 1 -name "${DB}_*.sql.gz"   -mtime "+${RETENTION_DAYS}" -delete -print 2>/dev/null || true
+                  find "${BACKUP_DIR}" -maxdepth 1 -name "manifest_*.json"  -mtime "+${RETENTION_DAYS}" -delete -print 2>/dev/null || true
+                  find "${BACKUP_DIR}" -maxdepth 1 -name "backup_*.log"     -mtime "+${RETENTION_DAYS}" -delete -print 2>/dev/null || true
+
+                  REMAINING=$(ls "${BACKUP_DIR}"/${DB}_*.sql.gz 2>/dev/null | wc -l)
+                  echo ""
+                  echo "Current backups (last 5):"
+                  ls -lh "${BACKUP_DIR}"/${DB}_*.sql.gz 2>/dev/null | tail -5
+
+                  echo ""
+                  echo "========================================"
+                  echo "Backup OK: ${BACKUP_GZ} (${SIZE_HUMAN})"
+                  echo "Retained:  ${REMAINING}"
+                  echo "========================================"
+              env:
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: POSTGRES_DB
+                  value: "openbrain"
+                - name: POSTGRES_USER
+                  value: "openbrain"
+              volumeMounts:
+                - name: nas-backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+          volumes:
+            - name: nas-backup
+              hostPath:
+                path: /mnt/nas-backup/postgresql/openbrain
+                type: DirectoryOrCreate

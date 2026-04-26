@@ -1,0 +1,184 @@
+# Weekly PostgreSQL maintenance for OpenBrain (on-prem k8s).
+#
+# Pattern adopted from upick-prod (`postgres-prod-maintenance`) and
+# rummag-dev's maintenance overlay, with a pgvector report added since
+# OpenBrain stores agent memory embeddings.
+#
+#   Phase 1: VACUUM ANALYZE (whole database)
+#   Phase 2: Bloat detection (total > 3 × data, > 50 MB)
+#   Phase 3: Unused-index report (idx_scan = 0, > 10 MB)
+#   Phase 4: Idle-in-transaction reaper (> 30 min)
+#   Phase 5: Database size + pgvector index inventory
+#
+# REINDEX of HNSW/IVFFlat indexes is intentionally NOT automated — it can
+# be expensive and should be reviewed with the inventory output before
+# scheduling. The Phase 5 report surfaces vector index sizes so we can
+# tell when manual REINDEX is warranted.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openbrain-pg-maintenance
+  namespace: openbrain
+  labels:
+    app: openbrain
+    component: postgres
+    tier: maintenance
+spec:
+  schedule: "0 1 * * 0"       # Sundays 01:00 UTC — runs before the daily 02:00 backup
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800   # 30 min cap (slightly larger than rummag-dev — vector tables can be big)
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: openbrain
+            component: postgres
+            tier: maintenance
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: openbrain-pg-maintenance
+          containers:
+            - name: pg-maintenance
+              image: bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  NS="${POD_NAMESPACE}"
+                  DB="${POSTGRES_DB}"
+                  USER="${POSTGRES_USER}"
+                  POD="openbrain-postgres-0"
+
+                  echo "========================================"
+                  echo "openbrain weekly maintenance"
+                  echo "Started: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+                  echo "========================================"
+
+                  kubectl exec -n "${NS}" "${POD}" -- pg_isready -U "${USER}" -d "${DB}" -t 10
+
+                  # ----- Phase 1: VACUUM ANALYZE -----
+                  echo ""
+                  echo "Phase 1: VACUUM ANALYZE (whole database)"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -c "VACUUM ANALYZE;"
+                  echo "  done."
+
+                  # ----- Phase 2: Bloat detection -----
+                  echo ""
+                  echo "Phase 2: bloat detection (total > 3x data, > 50 MB)"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -c "
+                      SELECT
+                        relname AS table_name,
+                        pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size,
+                        pg_size_pretty(pg_relation_size(c.oid))       AS data_size,
+                        CASE WHEN pg_relation_size(c.oid) > 0
+                          THEN ROUND(pg_total_relation_size(c.oid)::numeric / pg_relation_size(c.oid), 1)
+                          ELSE 0 END AS bloat_ratio,
+                        CASE
+                          WHEN pg_relation_size(c.oid) > 0
+                            AND pg_total_relation_size(c.oid) > 3 * pg_relation_size(c.oid)
+                            THEN 'BLOATED'
+                          ELSE 'OK'
+                        END AS status
+                      FROM pg_class c
+                      JOIN pg_namespace n ON n.oid = c.relnamespace
+                      WHERE n.nspname NOT IN ('pg_catalog','information_schema','pg_toast')
+                        AND c.relkind = 'r'
+                        AND pg_total_relation_size(c.oid) > 52428800
+                      ORDER BY pg_total_relation_size(c.oid) DESC
+                      LIMIT 20;"
+
+                  # ----- Phase 3: Unused indexes -----
+                  echo ""
+                  echo "Phase 3: unused indexes (0 scans, > 10 MB)"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -c "
+                      SELECT
+                        relname              AS table_name,
+                        indexrelname         AS index_name,
+                        pg_size_pretty(pg_relation_size(indexrelid)) AS index_size,
+                        idx_scan             AS scans
+                      FROM pg_stat_user_indexes
+                      WHERE idx_scan = 0
+                        AND pg_relation_size(indexrelid) > 10485760
+                      ORDER BY pg_relation_size(indexrelid) DESC
+                      LIMIT 10;"
+
+                  # ----- Phase 4: Idle-in-transaction reaper -----
+                  echo ""
+                  echo "Phase 4: terminate idle-in-transaction sessions > 30 min"
+                  KILLED=$(kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -tAc "
+                      SELECT COUNT(*) FROM pg_stat_activity
+                      WHERE state = 'idle in transaction'
+                        AND query_start < NOW() - INTERVAL '30 minutes'
+                        AND datname = '${DB}';" 2>/dev/null | tr -d '[:space:]')
+                  echo "  found: ${KILLED:-0}"
+                  if [ "${KILLED:-0}" -gt 0 ] 2>/dev/null; then
+                    kubectl exec -n "${NS}" "${POD}" -- \
+                      psql -U "${USER}" -d "${DB}" -c "
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE state = 'idle in transaction'
+                          AND query_start < NOW() - INTERVAL '30 minutes'
+                          AND datname = '${DB}';"
+                    echo "  terminated ${KILLED}"
+                  else
+                    echo "  none — clean."
+                  fi
+
+                  # ----- Phase 5: Database size + pgvector index inventory -----
+                  echo ""
+                  echo "Phase 5a: database size"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -c "
+                      SELECT pg_size_pretty(pg_database_size('${DB}')) AS db_size;"
+
+                  echo ""
+                  echo "Phase 5b: pgvector index inventory (HNSW / IVFFlat)"
+                  kubectl exec -n "${NS}" "${POD}" -- \
+                    psql -U "${USER}" -d "${DB}" -c "
+                      SELECT
+                        n.nspname AS schema,
+                        c.relname AS index_name,
+                        am.amname AS method,
+                        pg_size_pretty(pg_relation_size(c.oid)) AS size
+                      FROM pg_class c
+                      JOIN pg_am am ON am.oid = c.relam
+                      JOIN pg_namespace n ON n.oid = c.relnamespace
+                      WHERE c.relkind = 'i'
+                        AND am.amname IN ('hnsw','ivfflat')
+                      ORDER BY pg_relation_size(c.oid) DESC;" || \
+                    echo "  (no vector indexes or pgvector not installed)"
+
+                  echo ""
+                  echo "========================================"
+                  echo "Maintenance complete: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+                  echo "========================================"
+              env:
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: POSTGRES_DB
+                  value: "openbrain"
+                - name: POSTGRES_USER
+                  value: "openbrain"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "250m"

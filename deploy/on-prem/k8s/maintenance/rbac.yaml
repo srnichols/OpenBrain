@@ -1,0 +1,57 @@
+# RBAC for openbrain postgres maintenance/backup CronJobs.
+#
+# These jobs run `kubectl exec` into the openbrain-postgres-0 pod to invoke
+# pg_dump / psql via the in-pod socket — no network DB connection or
+# password handling required. The ServiceAccount only has the minimum
+# verbs needed for that.
+#
+# Pattern adopted from upick-prod (postgres-prod-base-backup,
+# postgres-prod-logical-backup, postgres-prod-maintenance) and mirrored
+# from rummag-dev's `maintenance` overlay.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openbrain-pg-maintenance
+  namespace: openbrain
+  labels:
+    app: openbrain
+    component: postgres
+    tier: maintenance
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openbrain-pg-maintenance
+  namespace: openbrain
+  labels:
+    app: openbrain
+    component: postgres
+    tier: maintenance
+rules:
+  # Required to discover the postgres pod by label.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Required to invoke pg_dump / psql inside openbrain-postgres-0.
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openbrain-pg-maintenance
+  namespace: openbrain
+  labels:
+    app: openbrain
+    component: postgres
+    tier: maintenance
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openbrain-pg-maintenance
+subjects:
+  - kind: ServiceAccount
+    name: openbrain-pg-maintenance
+    namespace: openbrain
