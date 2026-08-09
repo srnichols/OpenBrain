@@ -17,6 +17,86 @@ ok()    { printf '  \033[32m✓ %s\033[0m\n' "$1"; }
 warn()  { printf '  \033[33m⚠ %s\033[0m\n' "$1"; }
 fail()  { printf '  \033[31m✗ %s\033[0m\n' "$1"; }
 
+merge_claude_code_settings() {
+    local config="$1" mcp_url="$2"
+    local backup tmp py
+
+    tmp="$(mktemp)"
+    cat > "$tmp" << EOJSON
+{
+  "type": "sse",
+  "url": "$mcp_url"
+}
+EOJSON
+
+    if [[ ! -f "$config" ]]; then
+        cat > "$config" << EOJSON
+{
+  "mcpServers": {
+    "openbrain": {
+      "type": "sse",
+      "url": "$mcp_url"
+    }
+  }
+}
+EOJSON
+        rm -f "$tmp"
+        return 0
+    fi
+
+    backup="${config}.bak.$(date +%Y%m%d%H%M%S)"
+    cp "$config" "$backup"
+
+    if command -v python3 &>/dev/null; then
+        py="python3"
+    elif command -v python &>/dev/null; then
+        py="python"
+    else
+        rm -f "$tmp"
+        fail "Python not found; cannot safely merge existing $config"
+        echo "  Backup preserved at $backup"
+        return 1
+    fi
+
+    if ! "$py" - "$config" "$tmp" << 'PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+server_path = Path(sys.argv[2])
+
+try:
+    existing_text = config_path.read_text(encoding="utf-8").strip()
+    existing = json.loads(existing_text) if existing_text else {}
+except json.JSONDecodeError as exc:
+    print(f"Invalid JSON in {config_path}: {exc}", file=sys.stderr)
+    sys.exit(2)
+
+if not isinstance(existing, dict):
+    print(f"{config_path} must contain a JSON object", file=sys.stderr)
+    sys.exit(2)
+
+openbrain = json.loads(server_path.read_text(encoding="utf-8"))
+mcp_servers = existing.setdefault("mcpServers", {})
+if not isinstance(mcp_servers, dict):
+    print(f"{config_path} mcpServers must be a JSON object", file=sys.stderr)
+    sys.exit(2)
+
+mcp_servers["openbrain"] = openbrain
+config_path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+PY
+    then
+        rm -f "$tmp"
+        fail "Could not merge Claude Code settings without risking data loss"
+        echo "  Original settings preserved at $backup"
+        return 1
+    fi
+
+    rm -f "$tmp"
+    echo "  Backup saved: $backup"
+}
+
 FORCE=false
 EMBEDDER=""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -339,18 +419,10 @@ EOJSON
     3)
         mkdir -p "$HOME/.claude"
         CONFIG="$HOME/.claude/settings.json"
-        cat > "$CONFIG" << EOJSON
-{
-  "mcpServers": {
-    "openbrain": {
-      "type": "sse",
-      "url": "$MCP_URL"
-    }
-  }
-}
-EOJSON
-        ok "Claude Code settings updated"
-        echo "  → Restart Claude Code to activate"
+        if merge_claude_code_settings "$CONFIG" "$MCP_URL"; then
+            ok "Claude Code settings updated"
+            echo "  → Restart Claude Code to activate"
+        fi
         ;;
     *)
         ok "Skipped — configure manually using the docs"
